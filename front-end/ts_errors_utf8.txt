@@ -1,0 +1,46 @@
+﻿app/admin/face-data/page.tsx(44,101): error TS2345: Argument of type '"default"' is not assignable to parameter of type '"success" | "error" | "info" | undefined'.
+app/user/home/page.tsx(210,19): error TS2322: Type '"xl"' is not assignable to type '"sm" | "md" | "lg" | undefined'.
+app/user/profile/page.tsx(58,21): error TS2322: Type '"xl"' is not assignable to type '"sm" | "md" | "lg" | undefined'.
+components/features/motion/motion-modal.tsx(66,13): error TS2322: Type '{ hidden: { opacity: number; scale: number; y: number; }; visible: { opacity: number; scale: number; y: number; transition: { type: string; stiffness: number; damping: number; }; }; exit: { opacity: number; scale: number; y: number; transition: { ...; }; }; }' is not assignable to type 'Variants'.
+  Property 'visible' is incompatible with index signature.
+    Type '{ opacity: number; scale: number; y: number; transition: { type: string; stiffness: number; damping: number; }; }' is not assignable to type 'Variant'.
+      Type '{ opacity: number; scale: number; y: number; transition: { type: string; stiffness: number; damping: number; }; }' is not assignable to type 'TargetAndTransition'.
+        Type '{ opacity: number; scale: number; y: number; transition: { type: string; stiffness: number; damping: number; }; }' is not assignable to type '{ transition?: Transition<any> | undefined; transitionEnd?: ResolvedValues$1 | undefined; }'.
+          Types of property 'transition' are incompatible.
+            Type '{ type: string; stiffness: number; damping: number; }' is not assignable to type 'Transition<any> | undefined'.
+              Type '{ type: string; stiffness: number; damping: number; }' is not assignable to type 'TransitionWithValueOverrides<any>'.
+                Type '{ type: string; stiffness: number; damping: number; }' is not assignable to type 'ValueAnimationTransition<any>'.
+                  Types of property 'type' are incompatible.
+                    Type 'string' is not assignable to type 'AnimationGeneratorType | undefined'.
+components/features/motion/motion-page.tsx(33,7): error TS2322: Type '{ hidden: { opacity: number; y: number; }; visible: { opacity: number; y: number; transition: { duration: number; ease: number[]; staggerChildren: number; }; }; exit: { opacity: number; y: number; transition: { ...; }; }; }' is not assignable to type 'Variants'.
+  Property 'visible' is incompatible with index signature.
+    Type '{ opacity: number; y: number; transition: { duration: number; ease: number[]; staggerChildren: number; }; }' is not assignable to type 'Variant'.
+      Type '{ opacity: number; y: number; transition: { duration: number; ease: number[]; staggerChildren: number; }; }' is not assignable to type 'TargetAndTransition'.
+        Type '{ opacity: number; y: number; transition: { duration: number; ease: number[]; staggerChildren: number; }; }' is not assignable to type '{ transition?: Transition<any> | undefined; transitionEnd?: ResolvedValues$1 | undefined; }'.
+          Types of property 'transition' are incompatible.
+            Type '{ duration: number; ease: number[]; staggerChildren: number; }' is not assignable to type 'Transition<any> | undefined'.
+              Type '{ duration: number; ease: number[]; staggerChildren: number; }' is not assignable to type 'TransitionWithValueOverrides<any>'.
+                Type '{ duration: number; ease: number[]; staggerChildren: number; }' is not assignable to type 'ValueAnimationTransition<any>'.
+                  Types of property 'ease' are incompatible.
+                    Type 'number[]' is not assignable to type 'Easing | Easing[] | undefined'.
+                      Type 'number[]' is not assignable to type 'EasingFunction | Easing[]'.
+                        Type 'number[]' is not assignable to type 'Easing[]'.
+                          Type 'number' is not assignable to type 'Easing'.
+components/features/motion/motion-toast.tsx(57,7): error TS2322: Type '{ hidden: { opacity: number; x: number; y: number; }; visible: { opacity: number; x: number; y: number; transition: { type: string; stiffness: number; damping: number; }; }; exit: { opacity: number; x: number; transition: { ...; }; }; }' is not assignable to type 'Variants'.
+  Property 'visible' is incompatible with index signature.
+    Type '{ opacity: number; x: number; y: number; transition: { type: string; stiffness: number; damping: number; }; }' is not assignable to type 'Variant'.
+      Type '{ opacity: number; x: number; y: number; transition: { type: string; stiffness: number; damping: number; }; }' is not assignable to type 'TargetAndTransition'.
+        Type '{ opacity: number; x: number; y: number; transition: { type: string; stiffness: number; damping: number; }; }' is not assignable to type '{ transition?: Transition<any> | undefined; transitionEnd?: ResolvedValues$1 | undefined; }'.
+          Types of property 'transition' are incompatible.
+            Type '{ type: string; stiffness: number; damping: number; }' is not assignable to type 'Transition<any> | undefined'.
+              Type '{ type: string; stiffness: number; damping: number; }' is not assignable to type 'TransitionWithValueOverrides<any>'.
+                Type '{ type: string; stiffness: number; damping: number; }' is not assignable to type 'ValueAnimationTransition<any>'.
+                  Types of property 'type' are incompatible.
+                    Type 'string' is not assignable to type 'AnimationGeneratorType | undefined'.
+components/features/motion/shake-input.tsx(33,10): error TS2322: Type '{ accept?: string | undefined; alt?: string | undefined; autoComplete?: HTMLInputAutoCompleteAttribute | undefined; capture?: boolean | "user" | "environment" | undefined; ... 305 more ...; className: string; }' is not assignable to type 'Omit<HTMLMotionProps<"input">, "ref">'.
+  Types of property 'onAnimationStart' are incompatible.
+    Type 'AnimationEventHandler<HTMLInputElement> | undefined' is not assignable to type '((definition: AnimationDefinition) => void) | undefined'.
+      Type 'AnimationEventHandler<HTMLInputElement>' is not assignable to type '(definition: AnimationDefinition) => void'.
+        Types of parameters 'event' and 'definition' are incompatible.
+          Type 'AnimationDefinition' is not assignable to type 'AnimationEvent<HTMLInputElement>'.
+            Type 'string' is not assignable to type 'AnimationEvent<HTMLInputElement>'.
