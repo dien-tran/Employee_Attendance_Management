@@ -1,12 +1,14 @@
 # 1. MySQL & Relational DB Optimization
-- Kỹ năng thiết kế chuẩn hóa cơ sở dữ liệu (Normalization), thiết lập đúng đắn các mối quan hệ 1-N, N-N.
-- Khả năng phân tích câu lệnh truy vấn (EXPLAIN) và sử dụng chỉ mục (Indexes, Composite Indexes) hợp lý để tăng tốc độ truy vấn phức tạp bằng JOIN.
-- Dùng ACID Transactions một cách hiệu quả bảo vệ toàn vẹn dữ liệu.
+- Tối ưu hóa Database: Thiết kế chuẩn hóa (Normalization), thiết lập các mối quan hệ (Relations, Foreign Keys) an toàn.
+- Quản lý hiệu suất: Thành thạo tối ưu truy vấn bằng Indexes, tích hợp cơ chế MySQL Connection Pool (`mysql2`) chuẩn production.
+- Tính toàn vẹn: Dùng ACID Transactions cho các luồng xử lý đa bảng.
 
-# 2. Vector Database & Biometric Processing
-- Thành thạo xử lý và lưu trữ vector embeddings cho bài toán nhận diện khuôn mặt.
-- Quản lý metadata đi kèm vector data để tham chiếu ánh xạ với hệ thống MySQL.
+# 2. Xây dựng Kiến trúc MVC & API Endpoints
+- Tư duy phân lớp rõ ràng: Routing tách biệt, Controller thuần tuý Request/Response, Service xử lý toàn bộ Business logic dầy đặc.
+- Quản lý Error Handling tập trung: Sử dụng Global Error Handler chặn và định dạng chuẩn hóa mọi Exception phát sinh.
+- Thành thạo các thư viện Validation Data như Joi / Zod (tiếp nhận từ Frontend).
 
-# 3. Advanced Security & Auth
-- Hiểu biết sâu về JWT, Refresh Tokens, xử lý quản trị session với Auth.
-- Ngăn chặn triệt để các rủi ro bảo mật API cấp độ cao (Rate Limiting, SQL Injection, XSS bảo vệ ở API).
+# 3. Security, Auth & AI Integration
+- Gateway Security: Tích hợp thư viện bảo mật tiêu chuẩn gồm CORS và Helmet.
+- Xác thực & Phân quyền: Cấu hình hệ thống JWT/Refresh tokens vững chắc ứng dụng Role-Based Access Control cho Employee/Manager.
+- AI System Integration: Thiết lập các module giao tiếp ngoại vi (REST API, gRPC) kết nối với hệ thống Core AI/Python để truyền phát ảnh Base64 chấm công, gửi dữ liệu Chatbot.

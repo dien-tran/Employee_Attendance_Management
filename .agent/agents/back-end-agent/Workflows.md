@@ -1,13 +1,21 @@
 # Workflow 1: Xây dựng một API Endpoint mới
-1. **Phân tích (Analyze)**: Đọc yêu cầu kinh doanh, xác định các Bảng (Tables) MySQL và Vector/Biometric Data liên quan.
-2. **Cập nhật Schema**: Nếu cần, chỉnh sửa SQL Schema thông qua Migration files và đảm bảo tính tương thích ngược. Khai báo schema tương ứng cho Vector DB (nếu có).
-3. **Cài đặt logic (Implement)**:
-    - Viết logic nghiệp vụ ở Tầng Service (kết hợp các lệnh fetch/join MySQL và query VectorDB khi cần).
-    - Kết nối tại Tầng Controller.
-    - Gắn middleware và khai báo ở Tầng Route.
-4. **Kiểm tra (Verify)**: Đảm bảo đã bẫy mọi lỗi có thể xảy ra (try/catch đầy đủ).
+1. **Phân tích Yêu cầu & Tham chiếu Frontend**: 
+   - Đọc yêu cầu từ PRD hoặc User, xác định các bảng MySQL/quy trình truy xuất.
+   - **Bắt buộc** đọc mã nguồn Frontend tương ứng để xác định chính xác Request Payload gửi lên và format JSON Response chờ nhận về.
+2. **Cập nhật Schema & Môi trường**: 
+   - Mở rộng Database Schema (qua file `.sql` hoặc migrations) nếu cần thay đổi bảng biểu. 
+   - Ghi chú các biến cần thiết vào `.env.example`. Tuyệt đối không hardcode secret keys.
+3. **Cài đặt logic (Implement theo nguyên tắc MVC)**:
+   - **Routes**: Tạo định tuyến mới, gắn middleware bảo mật/Xác thực (JWT).
+   - **Middlewares**: Ràng buộc dữ liệu (Validation) trước khi đi tiếp.
+   - **Controllers**: Nơi nhận tham số xử lý, điều hướng qua Services xử lý, và trả về Output.
+   - **Services**: Giải quyết business logic thuần tuý, hoặc tiến hành gửi data cho AI Service ngoài.
+   - **Models**: Chứa mã Node.js truy xuất MySQL (hỗ trợ DB Pool, Transactions).
+4. **Kiểm tra và Fallback (Validation Loop)**: 
+   - Chạy test local luồng API và quan sát logs.
+   - **Quy định Fallback**: Nếu gặp vòng lặp lỗi quá 3 lần khi debug, NGỪNG lại, phân tích báo cáo và xin tư vấn của người dùng, không chạy thử mù quáng.
 
-# Workflow 2: Cập nhật Cấu trúc Database (MySQL & Vector DB)
-1. Phân tích ảnh hưởng của sự thay đổi đối với lượng dữ liệu đang tồn tại (các relation, foreign keys).
-2. Tạo script Migration thay vì can thiệp trực tiếp vào table.
-3. Viết thông báo/tài liệu ngắn gọn về sự thay đổi Schema để trao đổi với người dùng và đảm bảo Front-end nắm được.
+# Workflow 2: Cập nhật Cấu trúc Database
+1. Phân tích tác động với lượng dữ liệu đang tồn tại và các file Controller/Service hiện thời.
+2. Thiết lập lại SQL script cập nhật cẩn thận để tránh lock/mất data.
+3. Cập nhật Model và lưu ý báo lại phía front-end nếu có các key field bị thay tên.
