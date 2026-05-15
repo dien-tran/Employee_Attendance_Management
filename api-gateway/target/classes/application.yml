@@ -1,0 +1,66 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        # Auth Service routes (public - không qua JWT filter)
+        - id: auth-service-public
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - StripPrefix=1
+
+        # Staff Management routes (protected - qua JWT filter, chỉ ADMIN)
+        - id: auth-service-staff
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/staff/**
+
+        # Core Service routes (protected - qua JWT filter)
+        - id: core-service
+          uri: lb://core-service
+          predicates:
+            - Path=/api/core/**
+          filters:
+            - StripPrefix=1
+
+  # Tắt Spring Security mặc định (Gateway tự xử lý auth qua GlobalFilter)
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.reactive.ReactiveSecurityAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.reactive.ReactiveUserDetailsServiceAutoConfiguration
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: true
+
+app:
+  jwt:
+    signed-key: ${SIGNED_KEY:0e796109b182226d16e5ba239be1c9ce38c78d378444b4b8e2058e914ff887b8}
+  auth-service:
+    introspect-url: ${AUTH_INTROSPECT_URL:http://localhost:8081/auth/introspect}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+
+logging:
+  level:
+    com.attendance.gateway: DEBUG
+    org.springframework.cloud.gateway: INFO
