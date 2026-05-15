@@ -1,5 +1,6 @@
 package com.attendance.auth.service;
 
+import com.attendance.auth.dto.request.ProfileUpdateRequest;
 import com.attendance.auth.dto.request.StaffCreationRequest;
 import com.attendance.auth.dto.request.StaffUpdateRequest;
 import com.attendance.auth.dto.response.StaffResponse;
@@ -15,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.UUID;  // đang sửa
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -93,6 +94,28 @@ public class StaffService {
         return staffRepository.findAll().stream()
                 .map(this::mapToResponse)
                 .toList();
+    }
+
+    public StaffResponse getProfile(UUID userId) {
+        Staff staff = staffRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Staff not found with ID: " + userId));
+
+        return mapToResponse(staff);
+    }
+
+    @Transactional
+    public StaffResponse updateProfile(UUID userId, ProfileUpdateRequest request) {
+        Staff staff = staffRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Staff not found with ID: " + userId));
+
+        if (request.getName() != null && !request.getName().isBlank()) staff.setName(request.getName());
+        if (request.getDepartment() != null) staff.setDepartment(request.getDepartment());
+        if (request.getPhone() != null) staff.setPhone(request.getPhone());
+
+        Staff updatedStaff = staffRepository.save(staff);
+        log.info("Profile updated: id={}, staffId={}", updatedStaff.getId(), updatedStaff.getStaffId());
+
+        return mapToResponse(updatedStaff);
     }
 
     /**

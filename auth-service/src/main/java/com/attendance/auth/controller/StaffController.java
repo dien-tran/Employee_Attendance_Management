@@ -84,19 +84,19 @@ public class StaffController {
      * Yêu cầu quyền: ROLE_ADMIN
      */
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateStaff(
+    public ResponseEntity<ApiResponse<StaffResponse>> updateStaff(
             @RequestHeader(value = "X-User-Roles", required = false) String roles,
             @PathVariable UUID id,
             @RequestBody StaffUpdateRequest request) {
         
         // Kiểm tra quyền ROLE_ADMIN
         if (roles == null || !roles.contains("ADMIN")) {
-            return ResponseEntity.status(403)
-                    .body(java.util.Map.of("code", 403, "message", "Access denied: ADMIN role required"));
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.error(403, "Access denied: ADMIN role required"));
         }
 
         StaffResponse updatedStaff = staffService.updateStaff(id, request);
-        return ResponseEntity.ok(updatedStaff);
+        return ResponseEntity.ok(ApiResponse.success("Staff updated successfully", updatedStaff));
     }
 
     /**
@@ -104,20 +104,19 @@ public class StaffController {
      * Yêu cầu quyền: ROLE_ADMIN
      */
     @PatchMapping("/{id}/status")
-    public ResponseEntity<?> changeStaffStatus(
+    public ResponseEntity<ApiResponse<StaffResponse>> changeStaffStatus(
             @RequestHeader(value = "X-User-Roles", required = false) String roles,
             @PathVariable UUID id,
             @RequestParam String status) {
         
         // Kiểm tra quyền ROLE_ADMIN
         if (roles == null || !roles.contains("ADMIN")) {
-            return ResponseEntity.status(403)
-                    .body(java.util.Map.of("code", 403, "message", "Access denied: ADMIN role required"));
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.error(403, "Access denied: ADMIN role required"));
         }
 
         StaffResponse updatedStaff = staffService.changeStaffStatus(id, status);
-        return ResponseEntity.ok(updatedStaff);
+        return ResponseEntity.ok(ApiResponse.success("Staff status updated successfully", updatedStaff));
     }
-    
 
 }
