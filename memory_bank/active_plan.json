@@ -1,0 +1,201 @@
+{
+  "project": "Employee Attendance Management System",
+  "description": "SYSTEM PLAN SUMMARY & KNOWLEDGE BASE. Tài liệu định hướng nghiệp vụ (Source of Truth for Business Logic). TẤT CẢ các Agent phải đọc tài liệu này để xác định phạm vi (Scope) và trạng thái (Status) trước khi thực thi code.",
+  "status_legend": {
+    "DONE": "Đã hoàn thành, không được tự ý sửa đổi code cũ.",
+    "PENDING": "Chưa làm, hoặc đang cần Mock Data.",
+    "IN-PROGRESS": "Đang triển khai.",
+    "WAITING_FOR_API": "Task do team khác phụ trách, đang chờ để lấy API thật hoặc tạo Mock API hứng data."
+  },
+  "current_phase": "Giai đoạn 3: Tích hợp Frontend & Backend (Next.js)",
+  "tasks": [
+    {
+      "id": "3.0",
+      "domain": "FRONTEND FOUNDATION",
+      "name": "Khởi tạo API Client & Zustand Store",
+      "status": "DONE",
+      "description": "Đã tạo lib/api-client.ts (Fetch-based), services/auth.service.ts, services/staff.service.ts, store/authStore.ts (Zustand). Đã cập nhật contexts/auth-context.tsx dùng Zustand + API service. Đã thêm axios + zustand vào package.json."
+    },
+    {
+      "id": "3.1.1",
+      "domain": "UI/UX FEATURES SCOPE - Admin Portal",
+      "name": "Đăng nhập & Xác thực (Sử dụng HttpOnly Cookie)",
+      "status": "DONE",
+      "description": "Đã tích hợp API vào form đăng nhập Admin. Login form gọi useAuth().login() → authService.login() → apiClient. Toast notification và Redirect hoạt động. Đã cập nhật login-form.tsx dùng email thay vì username."
+    },
+    {
+      "id": "3.1.2",
+      "domain": "UI/UX FEATURES SCOPE - Admin Portal",
+      "name": "Quản lý thông tin nhân viên (Hiển thị danh sách, CRUD cơ bản)",
+      "status": "DONE",
+      "description": "Đã tích hợp API vào bảng danh sách nhân viên. Thêm form tạo mới (Add Employee modal) với đầy đủ fields. Thêm chức năng thay đổi trạng thái (ACTIVE/INACTIVE) bằng nút Activate/Deactivate. Dùng staffService (getAll, create, updateStatus)."
+    },
+    {
+      "id": "3.1.3",
+      "domain": "UI/UX FEATURES SCOPE - Admin Portal",
+      "name": "Giao diện Upload data khuôn mặt",
+      "status": "WAITING_FOR_API",
+      "description": "Giao diện đã có, chờ team AI cung cấp API Đăng ký khuôn mặt để tích hợp."
+    },
+    {
+      "id": "3.1.4",
+      "domain": "UI/UX FEATURES SCOPE - Admin Portal",
+      "name": "Dashboard tổng quan (Tổng nhân sự, Tỉ lệ đi muộn/đúng giờ hôm nay)",
+      "status": "WAITING_FOR_API",
+      "description": "Chờ API Analytics. Hiện tại chỉ sử dụng Mock Data tĩnh trên giao diện."
+    },
+    {
+      "id": "3.1.5",
+      "domain": "UI/UX FEATURES SCOPE - Admin Portal",
+      "name": "AI Chatbot Panel (Hỏi đáp thống kê toàn công ty)",
+      "status": "WAITING_FOR_API",
+      "description": "Chờ API Chatbot từ Core Service."
+    },
+    {
+      "id": "3.2.1",
+      "domain": "UI/UX FEATURES SCOPE - User Portal",
+      "name": "Đăng nhập (Tài khoản = Email/Mã nhân viên)",
+      "status": "DONE",
+      "description": "Đã tích hợp luồng đăng nhập cho User. Login form dùng email + password, gọi authService.login(). Sau login thành công redirect về /user/home."
+    },
+    {
+      "id": "3.2.2",
+      "domain": "UI/UX FEATURES SCOPE - User Portal",
+      "name": "Xem thông tin cá nhân (Profile)",
+      "status": "DONE",
+      "description": "Profile page đọc thông tin User (name, email, role, department) từ Zustand Store (useAuthStore) để hiển thị trên UI."
+    },
+    {
+      "id": "3.2.3",
+      "domain": "UI/UX FEATURES SCOPE - User Portal",
+      "name": "Update thông tin cá nhân",
+      "status": "DONE",
+      "description": "Đã thêm Edit Profile modal với form chỉnh sửa name, department, phone. Dùng setUser() từ Zustand store để cập nhật state sau khi save."
+    },
+    {
+      "id": "3.2.4",
+      "domain": "UI/UX FEATURES SCOPE - User Portal",
+      "name": "Dashboard cá nhân (Thống kê đi muộn, đúng giờ trong tháng)",
+      "status": "WAITING_FOR_API"
+    },
+    {
+      "id": "3.2.5",
+      "domain": "UI/UX FEATURES SCOPE - User Portal",
+      "name": "Nút bấm Chấm công thủ công (Fallback khi camera lỗi)",
+      "status": "WAITING_FOR_API"
+    },
+    {
+      "id": "3.2.6",
+      "domain": "UI/UX FEATURES SCOPE - User Portal",
+      "name": "AI Chatbot (Hỏi đáp cá nhân: Lương, giờ làm, ngày phép)",
+      "status": "WAITING_FOR_API"
+    },
+    {
+      "id": "3.3",
+      "domain": "E2E TESTING",
+      "name": "Khởi tạo hạ tầng Playwright & Docker E2E Runner",
+      "status": "DONE",
+      "description": "1. Khởi tạo `playwright.config.ts` (baseURL, video, trace, screenshot). 2. Thêm service `e2e-runner` vào `docker-compose.yml` (dùng image mcr.microsoft.com/playwright). 3. Tạo thư mục `front-end/playwright/.auth/` để chứa state và add vào .gitignore. Đảm bảo tuân thủ `e2e_testing_rules.md` Mục 1 và 3.",
+      "rules_reference": [
+        "e2e_testing_rules.md#1",
+        "e2e_testing_rules.md#3"
+      ]
+    },
+    {
+      "id": "3.3.1",
+      "domain": "E2E TESTING",
+      "name": "Chuẩn bị UI - Gắn data-testid",
+      "status": "DONE",
+      "description": "Agent mở các file component UI (Login, Admin Employees, User Profile) và CHỈ thực hiện việc bổ sung các thuộc tính `data-testid` theo đúng định dạng `[component]-[action]-[entity]` quy định tại `e2e_testing_rules.md` Mục 2. KHÔNG thay đổi logic UI.",
+      "rules_reference": ["e2e_testing_rules.md#2"]
+    },
+    {
+      "id": "3.4",
+      "domain": "E2E TESTING",
+      "name": "Thiết lập Global Auth State (Login 1 lần)",
+      "status": "PENDING",
+      "description": "Viết file `front-end/tests/e2e/auth.setup.ts`. Cấu hình Playwright dependencies để chạy file này đầu tiên. Luồng: Truy cập form login, đăng nhập Admin -> Lưu state vào `playwright/.auth/admin.json`. Đăng nhập User -> Lưu state vào `playwright/.auth/user.json`. Chỉ lưu session, không assert phức tạp.",
+      "rules_reference": [
+        "e2e_testing_rules.md#6",
+        "e2e_testing_rules.md#7"
+      ]
+    },
+    {
+      "id": "3.5",
+      "domain": "E2E TESTING",
+      "name": "Viết kịch bản E2E - UI Validation & Luồng nghiệp vụ Admin",
+      "status": "PENDING",
+      "description": "Sử dụng `storageState` Admin. Viết `admin-crud.spec.ts`. 1. Test lỗi form Login (UI Validation). 2. Test Admin tạo nhân viên (Đợi API Gateway trả 201 -> Đợi Toast -> Assert DOM). 3. Dọn dẹp data rác bằng hook `test.afterAll`. Tuân thủ tuyệt đối Verify 3 cấp độ (Mục 5).",
+      "rules_reference": ["e2e_testing_rules.md"]
+    },
+    {
+      "id": "3.6",
+      "domain": "E2E TESTING",
+      "name": "Viết kịch bản E2E - Quản lý hồ sơ cá nhân (User Profile)",
+      "status": "PENDING",
+      "description": "Sử dụng `storageState` User. Viết `user-profile.spec.ts`. Truy cập profile, cập nhật thông tin (Intercept API trả 200). Assert DOM cập nhật real-time. Restore lại data sau khi test.",
+      "rules_reference": ["e2e_testing_rules.md"]
+    }
+
+  ],
+  "external_dependencies_phase": {
+    "phase_name": "Giai đoạn AI & Core Analytics (Team khác phụ trách)",
+    "description": "Các task này do team khác làm, hiện tại chỉ cần chờ API thật hoặc viết Mock API để hứng dữ liệu cho UI.",
+    "tasks": [
+      {
+        "id": "1.4",
+        "domain": "AUTH & USER MANAGEMENT (auth-service)",
+        "name": "Nghiệp vụ: Đăng ký khuôn mặt (Face Registration)",
+        "status": "WAITING_FOR_API",
+        "description": "Admin chọn nhân viên -> Upload ảnh/Chụp camera. AI kiểm tra chất lượng (sáng, nét, 1 khuôn mặt). Trích xuất vector qua InsightFace/ArcFace. Lưu Vector DB kèm metadata."
+      },
+      {
+        "id": "2.1",
+        "domain": "ATTENDANCE & AI ANALYTICS (core-service)",
+        "name": "Nghiệp vụ: Luồng Chấm công (User Flow)",
+        "status": "WAITING_FOR_API",
+        "description": "Nhân viên quét khuôn mặt (Checkin/Checkout). Tiền xử lý -> Vector Search (Threshold >= 0.8). Trả về staff_id -> Insert record."
+      },
+      {
+        "id": "2.2",
+        "domain": "ATTENDANCE & AI ANALYTICS (core-service)",
+        "name": "Nghiệp vụ: Bảng Thống kê (Aggregate for AI)",
+        "status": "WAITING_FOR_API",
+        "description": "Cung cấp dữ liệu tĩnh (Markdown Table) cho LLM Chatbot (Tổng ngày đi làm, đi muộn, về sớm, v.v.)."
+      }
+    ]
+  },
+  "infrastructure": {
+    "frontend_docker": {
+      "status": "DONE",
+      "description": "Đã tạo Dockerfile (multi-stage build: node build → nginx serve), nginx.conf (proxy /api/ → api-gateway:8080), và cập nhật docker-compose.yml với frontend service port 3000:80.",
+      "files": ["front-end/Dockerfile", "front-end/nginx.conf"]
+    }
+  },
+  "database_schema": {
+    "staffs": [
+      { "field": "id", "type": "UUID (PK)", "description": "Khóa chính nội bộ" },
+      { "field": "staff_id", "type": "VARCHAR", "description": "Mã nhân viên hệ thống cấp (VD: NV123456)" },
+      { "field": "name", "type": "VARCHAR", "description": "Họ và tên" },
+      { "field": "department", "type": "VARCHAR", "description": "Phòng ban (IT, HR, Sales...)" },
+      { "field": "position", "type": "VARCHAR", "description": "Vị trí công tác" },
+      { "field": "onboard_date", "type": "DATE", "description": "Ngày bắt đầu làm việc" },
+      { "field": "status", "type": "VARCHAR", "description": "Trạng thái (ACTIVE / INACTIVE)" },
+      { "field": "phone", "type": "VARCHAR", "description": "Số điện thoại" },
+      { "field": "email", "type": "VARCHAR", "description": "Email cá nhân/công ty (Dùng để đăng nhập)" },
+      { "field": "identity_card", "type": "VARCHAR", "description": "Căn cước công dân" },
+      { "field": "bank_account", "type": "VARCHAR", "description": "Số tài khoản ngân hàng" },
+      { "field": "bank_name", "type": "VARCHAR", "description": "Tên ngân hàng" },
+      { "field": "dob", "type": "DATE", "description": "Ngày sinh" },
+      { "field": "password", "type": "VARCHAR", "description": "Mật khẩu (Băm/Hashed)" },
+      { "field": "role", "type": "VARCHAR", "description": "Quyền (ADMIN / USER)" }
+    ],
+    "attendances": [
+      { "field": "id", "type": "UUID (PK)", "description": "Khóa chính" },
+      { "field": "staff_id", "type": "VARCHAR", "description": "Mã nhân viên (Mapping với bảng staffs)" },
+      { "field": "type", "type": "VARCHAR", "description": "Loại thao tác (CHECK_IN / CHECK_OUT)" },
+      { "field": "timestamp", "type": "DATETIME", "description": "Thời gian chấm công chính xác (VD: 08:15:00)" },
+      { "field": "date", "type": "DATE", "description": "Ngày chấm công (VD: 2026-05-12)" }
+    ]
+  }
+}

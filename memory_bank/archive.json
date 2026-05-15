@@ -1,0 +1,156 @@
+{
+  "archived_tasks": [
+    {
+      "id": "0.1",
+      "domain": "INFRASTRUCTURE (eureka-service)",
+      "name": "Setup Eureka Service Registry",
+      "status": "DONE",
+      "description": "Khởi tạo Spring Boot với spring-cloud-starter-netflix-eureka-server. Cấu hình port 8761.",
+      "completed_at": "2026-05-13",
+      "notes": "Tạo eureka-service với pom.xml, EurekaServiceApplication.java, application.yml, Dockerfile (multi-stage build)."
+    },
+    {
+      "id": "0.2",
+      "domain": "INFRASTRUCTURE (api-gateway)",
+      "name": "Setup API Gateway & Jwt Filter",
+      "status": "DONE",
+      "description": "Cấu hình port 8080, route qua Eureka. Triển khai JwtAuthenticationFilter (Verify HS512, chặn Blacklist, bóc tách UserId gắn vào Header).",
+      "completed_at": "2026-05-13",
+      "notes": "Tạo api-gateway với JwtAuthenticationFilter (GlobalFilter): Local Verify HS512 + Blacklist Check qua WebClient. Đọc token từ HttpOnly Cookie hoặc Authorization Header. Inject X-User-Id, X-User-Roles vào downstream request."
+    },
+    {
+      "id": "0.3",
+      "domain": "INFRASTRUCTURE (auth-service)",
+      "name": "Tái cấu trúc Auth Service",
+      "status": "DONE",
+      "description": "Setup port 8081, Eureka Client, auth_db. Di chuyển Entities cũ sang. Viết API /auth/login, /auth/introspect.",
+      "completed_at": "2026-05-13",
+      "notes": "Tạo auth-service với entities Staff + InvalidatedToken, repositories, AuthService (login/introspect/logout với Nimbus JWT HS512), AuthController. DB: auth_db."
+    },
+    {
+      "id": "0.4",
+      "domain": "INFRASTRUCTURE (core-service)",
+      "name": "Khởi tạo Core Service",
+      "status": "DONE",
+      "description": "Setup port 8082, Eureka Client, core_db. Thiết lập cơ chế đọc X-User-Id từ Request Header (Không dùng thư viện JWT).",
+      "completed_at": "2026-05-13",
+      "notes": "Tạo core-service với entity Attendance, AttendanceRepository, AttendanceService, AttendanceController. KHÔNG có JWT dependency. Đọc X-User-Id và X-User-Roles từ @RequestHeader. DB: core_db."
+    },
+    {
+      "id": "1.1",
+      "domain": "AUTH & USER MANAGEMENT (auth-service)",
+      "name": "Nghiệp vụ: Đăng ký nhân viên (Admin Flow)",
+      "status": "DONE",
+      "description": "Admin đăng nhập hệ thống -> Chọn thêm nhân viên mới -> Nhập thông tin. Hệ thống tự động tạo staff_id và cấp mật khẩu mặc định (Ngày sinh).",
+      "completed_at": "2026-05-13",
+      "tested_at": "2026-05-13",
+      "notes": "Tạo StaffCreationRequest.java, StaffResponse.java (DTOs). Tạo StaffService.java: sinh staff_id (NV+6 số), hash password từ dob (ddMMyyyy) bằng BCrypt. Tạo StaffController.java: POST /api/staff, bảo vệ bằng header X-User-Roles=ROLE_ADMIN (inject bởi API Gateway). Cập nhật API_Endpoint.md section 1.5.",
+      "bugs_fixed": [
+        {
+          "component": "api-gateway/application.yml",
+          "bug": "Thiếu route /api/staff/** → auth-service. Route cũ chỉ có /api/auth/** (strip prefix → /auth/**) không cover /api/staff.",
+          "fix": "Thêm route id=auth-service-staff: Path=/api/staff/** → lb://auth-service (không strip prefix vì StaffController mapping là /api/staff)"
+        },
+        {
+          "component": "api-gateway/JwtAuthenticationFilter.java",
+          "bug": "IntrospectResponse record chỉ có field 'valid' (boolean) nhưng Auth Service trả về wrapper JSON: {code, message, result:{valid, userId, roles}}. Kết quả: valid luôn = false (default) → mọi token đều bị coi là blacklisted → 401 cho tất cả request.",
+          "fix": "Tách thành 2 records: IntrospectResponse(int code, String message, IntrospectResult result) và IntrospectResult(boolean valid, String userId, String roles). isValid() kiểm tra result != null && result.valid()."
+        }
+      ],
+      "new_files_added": [
+        {
+          "file": "auth-service/src/main/java/com/attendance/auth/config/DataInitializer.java",
+          "purpose": "ApplicationRunner tự động seed tài khoản ADMIN hệ thống khi khởi động (idempotent - chỉ tạo nếu chưa tồn tại). Tài khoản: email=admin@example.com, password=admin123, staffId=SYS000001, role=ADMIN."
+        }
+      ],
+      "test_results": {
+        "test_1_admin_login": "PASS - POST /api/auth/login với admin@example.com/admin123 → 200 OK, JWT token, role=ADMIN, staffId=SYS000001",
+        "test_2_create_staff_admin": "PASS - POST /api/staff với ROLE_ADMIN JWT → 201 Created, NV000001 Nguyen Thi Bich, NV000002 Le Van Duc",
+        "test_3_create_staff_user_403": "PASS - POST /api/staff với ROLE_USER JWT → 403 Forbidden 'Access denied: ADMIN role required'",
+        "test_4_no_token_401": "PASS - POST /api/staff không có token → 401 Unauthorized (Gateway chặn)",
+        "test_5_new_staff_login": "PASS - Login NV000001 password=20031998 (dob 1998-03-20), NV000002 password=04072000 (dob 2000-07-04) → 200 OK"
+      }
+    },
+    {
+      "id": "1.2",
+      "domain": "AUTH & USER MANAGEMENT (auth-service)",
+      "name": "Nghiệp vụ: Xem danh sách nhân viên (Admin Flow)",
+      "status": "DONE",
+      "description": "Admin đăng nhập hệ thống, truy cập trang quản lý nhân viên để xem danh sách toàn bộ nhân viên.",
+      "completed_at": "2026-05-13",
+      "tested_at": "2026-05-13",
+      "notes": "Triển khai endpoint GET /api/staff, bảo vệ bằng header X-User-Roles=ROLE_ADMIN. Endpoint này được cover bởi route `auth-service-staff` trong API Gateway (đã được thêm khi fix bug ở Task 1.1).",
+      "test_results": {
+        "test_1_get_staff_list_admin": "PASS - GET /api/staff với ROLE_ADMIN JWT → 200 OK, trả về danh sách nhân viên đã tạo (bao gồm SYS000001, NV000001, NV000002)"
+      }
+    },
+    {
+      "id": "1.4",
+      "domain": "AUTH & USER MANAGEMENT (auth-service)",
+      "name": "Nghiệp vụ: Đổi trạng thái nhân viên (Admin Flow)",
+      "status": "DONE",
+      "description": "Admin thay đổi trạng thái nhân viên (ACTIVE ↔ INACTIVE) thay vì xóa vật lý. Dùng để khóa/mở tài khoản nhân viên.",
+      "completed_at": "2026-05-13",
+      "tested_at": "2026-05-13",
+      "notes": "Triển khai endpoint PATCH /api/staff/{id}/status?status=INACTIVE (hoặc ACTIVE). Bảo vệ bằng header X-User-Roles=ROLE_ADMIN. Nhận UUID id từ path variable, status từ query param.",
+      "test_results": {
+        "test_1_change_status_inactive": "PASS - PATCH /api/staff/{id}/status?status=INACTIVE với ROLE_ADMIN → 200 OK, trả về StaffResponse với status=INACTIVE"
+      }
+    },
+    {
+      "id": "IT-1",
+      "domain": "INTEGRATION TEST (auth-service)",
+      "name": "StaffIntegrationTest — E2E Test: Tạo nhân viên → Đổi trạng thái → Kiểm tra danh sách",
+      "status": "DONE",
+      "description": "Integration test toàn luồng Staff Controller: POST tạo nhân viên → PATCH đổi trạng thái INACTIVE → GET danh sách kiểm tra. Dữ liệu chạy thẳng xuống H2 in-memory DB (không mock service/repository).",
+      "completed_at": "2026-05-13",
+      "tested_at": "2026-05-13",
+      "test_file": "auth-service/src/test/java/com/attendance/auth/StaffIntegrationTest.java",
+      "config_file": "auth-service/src/test/resources/application-test.yml",
+      "notes": "Dùng @SpringBootTest + @AutoConfigureMockMvc + @ActiveProfiles('test') + @Transactional. H2 in-memory DB (MODE=MySQL) thay cho MySQL thật. Eureka client bị tắt trong profile test. Spring tự rollback sau mỗi test nhờ @Transactional.",
+      "apis_tested": [
+        {
+          "step": 1,
+          "method": "POST",
+          "path": "/api/staff",
+          "header": "X-User-Roles: ROLE_ADMIN",
+          "body": "StaffCreationRequest (name, email, dob, department, position, phone, identityCard, bankAccount, bankName, role)",
+          "expected_status": 201,
+          "assertions": [
+            "code=201",
+            "message='Staff created successfully'",
+            "result.id is not empty",
+            "result.status='ACTIVE'"
+          ],
+          "result": "PASS"
+        },
+        {
+          "step": 2,
+          "method": "PATCH",
+          "path": "/api/staff/{id}/status?status=INACTIVE",
+          "header": "X-User-Roles: ROLE_ADMIN",
+          "expected_status": 200,
+          "assertions": [
+            "status='INACTIVE'"
+          ],
+          "result": "PASS"
+        },
+        {
+          "step": 3,
+          "method": "GET",
+          "path": "/api/staff",
+          "header": "X-User-Roles: ROLE_ADMIN",
+          "expected_status": 200,
+          "assertions": [
+            "result[*].id contains staffId",
+            "result[?(@.id==staffId)].status = 'INACTIVE'"
+          ],
+          "result": "PASS"
+        }
+      ],
+      "run_command": "docker run --rm -v \"<abs_path>/auth-service:/app\" -w /app maven:3.9.6-eclipse-temurin-21 mvn test -Dtest=StaffIntegrationTest",
+      "test_summary": "Tests run: 1, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS"
+    }
+    
+  ]
+}
