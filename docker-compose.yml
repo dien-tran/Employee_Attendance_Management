@@ -1,0 +1,182 @@
+version: '3.8'
+
+networks:
+  attendance-network:
+    driver: bridge
+
+volumes:
+  mysql-auth-data:
+  mysql-core-data:
+
+services:
+
+  # ============================================================
+  # DATABASE SERVICES
+  # ============================================================
+
+  mysql-auth:
+    image: mysql:8.0
+    container_name: mysql-auth
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: auth_db
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-auth-data:/var/lib/mysql
+    networks:
+      - attendance-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mysql-core:
+    image: mysql:8.0
+    container_name: mysql-core
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: core_db
+    ports:
+      - "3308:3306"
+    volumes:
+      - mysql-core-data:/var/lib/mysql
+    networks:
+      - attendance-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # INFRASTRUCTURE SERVICES
+  # ============================================================
+
+  eureka-service:
+    build:
+      context: ./eureka-service
+      dockerfile: Dockerfile
+    container_name: eureka-service
+    ports:
+      - "8761:8761"
+    networks:
+      - attendance-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      EUREKA_URL: http://eureka-service:8761/eureka/
+      SIGNED_KEY: 0e796109b182226d16e5ba239be1c9ce38c78d378444b4b8e2058e914ff887b8
+      AUTH_INTROSPECT_URL: http://auth-service:8081/auth/introspect
+    depends_on:
+      eureka-service:
+        condition: service_healthy
+    networks:
+      - attendance-network
+
+  # ============================================================
+  # BACKEND MICROSERVICES
+  # ============================================================
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: mysql-auth
+      DB_PORT: 3306
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      EUREKA_URL: http://eureka-service:8761/eureka/
+      SIGNED_KEY: 0e796109b182226d16e5ba239be1c9ce38c78d378444b4b8e2058e914ff887b8
+    depends_on:
+      mysql-auth:
+        condition: service_healthy
+      eureka-service:
+        condition: service_healthy
+    networks:
+      - attendance-network
+
+  core-service:
+    build:
+      context: ./core-service
+      dockerfile: Dockerfile
+    container_name: core-service
+    ports:
+      - "8082:8082"
+    environment:
+      DB_HOST: mysql-core
+      DB_PORT: 3306
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      EUREKA_URL: http://eureka-service:8761/eureka/
+      # KHÔNG có SIGNED_KEY - Core Service không xử lý JWT
+    depends_on:
+      mysql-core:
+        condition: service_healthy
+      eureka-service:
+        condition: service_healthy
+    networks:
+      - attendance-network
+
+  # ============================================================
+  # FRONTEND SERVICE
+  # ============================================================
+
+  frontend:
+    build:
+      context: ./front-end
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      api-gateway:
+        condition: service_started
+    networks:
+      - attendance-network
+
+  # ============================================================
+  # E2E TESTING SERVICE
+  # ============================================================
+
+    e2e-runner:
+    image: mcr.microsoft.com/playwright:v1.44.0-jammy
+    container_name: e2e-runner
+    working_dir: /app
+    volumes:
+      # Mount toàn bộ source frontend để đồng bộ code E2E test real-time
+      - ./front-end:/app
+      # Tuyệt chiêu: Cô lập node_modules vào volume của Docker để không bị đè bởi máy Local
+      - e2e_node_modules:/app/node_modules
+    environment:
+      # Tên service 'frontend' và port 80 do Nginx đang serve
+      - BASE_URL=http://frontend:80 
+    # Lệnh sẽ tự cài dependency nếu chưa có, và chạy test
+    command: >
+      bash -c "npm install && npx playwright test"
+    depends_on:
+      - frontend
+      - api-gateway
+    networks:
+      - attendance-network
+
+# Nhớ khai báo volume ở cuối file docker-compose.yml
+volumes:
+  e2e_node_modules:
+
