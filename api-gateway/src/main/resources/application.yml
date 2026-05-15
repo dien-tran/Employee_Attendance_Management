@@ -25,6 +25,12 @@ spring:
           predicates:
             - Path=/api/staff/**
 
+        # User Profile routes (protected - current authenticated user)
+        - id: auth-service-profile
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/profile/**
+
         # Core Service routes (protected - qua JWT filter)
         - id: core-service
           uri: lb://core-service
