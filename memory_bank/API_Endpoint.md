@@ -11,6 +11,7 @@
 |----------|-------------|-----------------|--------------|---------|
 | `auth-service-public` | `/api/auth/**` | `lb://auth-service` | Yes (1) | `/api/auth/login` → `/auth/login` trên auth-service |
 | `auth-service-staff` | `/api/staff/**` | `lb://auth-service` | No | `/api/staff` → `/api/staff` trên auth-service (port 8081) |
+| `auth-service-profile` | `/api/profile/**` | `lb://auth-service` | No | `/api/profile/me` → `/api/profile/me` trên auth-service (port 8081) |
 | `core-service` | `/api/core/**` | `lb://core-service` | Yes (1) | `/api/core/...` → `/core/...` trên core-service (port 8082) |
 
 > ⚠️ **Lưu ý quan trọng:** Route `/api/staff/**` KHÔNG strip prefix vì `StaffController` mapping là `/api/staff`.
@@ -112,6 +113,40 @@
 }
 ```
 
+### Staff Update / Status Responses
+
+`PUT /api/staff/{id}`:
+```json
+{
+  "code": 200,
+  "message": "Staff updated successfully",
+  "result": {
+    "id": "uuid",
+    "staffId": "NV000001",
+    "name": "Nguyen Van A",
+    "email": "a.nguyen@company.com",
+    "department": "IT",
+    "position": "Developer",
+    "status": "ACTIVE",
+    "phone": "0912345678",
+    "role": "USER"
+  }
+}
+```
+
+`PATCH /api/staff/{id}/status?status=INACTIVE`:
+```json
+{
+  "code": 200,
+  "message": "Staff status updated successfully",
+  "result": {
+    "id": "uuid",
+    "staffId": "NV000001",
+    "status": "INACTIVE"
+  }
+}
+```
+
 ### Error Responses
 | HTTP Status | Khi nào | Response |
 |-------------|---------|----------|
@@ -121,7 +156,54 @@
 
 ---
 
-## 3. Tài khoản hệ thống mặc định (DataInitializer)
+## 3. Profile Controller (`/api/profile`) — auth-service port 8081
+
+> Gọi qua Gateway: `GET http://localhost:8080/api/profile/me`
+> **Yêu cầu:** JWT hợp lệ. API Gateway inject `X-User-Id` và `X-User-Roles`.
+
+| Method | Gateway Path | Upstream Path | Request Body | Phân quyền | Mô tả |
+|--------|-------------|--------------|--------------|------------|-------|
+| GET | `/api/profile/me` | `/api/profile/me` | - | Authenticated | Lấy hồ sơ của chính user đang đăng nhập. |
+| PUT | `/api/profile/me` | `/api/profile/me` | `ProfileUpdateRequest` | Authenticated | Cập nhật thông tin hồ sơ cá nhân của chính user đang đăng nhập. |
+
+### ProfileUpdateRequest
+```json
+{
+  "name": "Nguyen Van A",
+  "department": "QA",
+  "phone": "0912345678"
+}
+```
+
+### Profile Response
+```json
+{
+  "code": 200,
+  "message": "Profile updated successfully",
+  "result": {
+    "id": "uuid",
+    "staffId": "NV000001",
+    "name": "Nguyen Van A",
+    "email": "a.nguyen@company.com",
+    "department": "QA",
+    "position": "Developer",
+    "status": "ACTIVE",
+    "phone": "0912345678",
+    "role": "USER"
+  }
+}
+```
+
+### Profile Error Responses
+| HTTP Status | Khi nào | Response |
+|-------------|---------|----------|
+| 401 | Không có token tại Gateway | (empty body) |
+| 401 | Thiếu `X-User-Id` ở auth-service | `{"code":401,"message":"Missing authenticated user id"}` |
+| 401 | `X-User-Id` không phải UUID hợp lệ | `{"code":401,"message":"Invalid authenticated user id"}` |
+
+---
+
+## 4. Tài khoản hệ thống mặc định (DataInitializer)
 
 > File: `auth-service/src/main/java/com/attendance/auth/config/DataInitializer.java`
 > Tự động tạo khi auth-service khởi động lần đầu (idempotent).
@@ -137,7 +219,7 @@
 
 ---
 
-## 4. JWT Token Structure
+## 5. JWT Token Structure
 
 **Algorithm:** HS512 (Nimbus JOSE JWT)
 **Signed Key:** `0e796109b182226d16e5ba239be1c9ce38c78d378444b4b8e2058e914ff887b8`
@@ -164,7 +246,7 @@
 
 ---
 
-## 5. Password Convention
+## 6. Password Convention
 
 | Loại tài khoản | Password mặc định | Ví dụ |
 |---------------|------------------|-------|

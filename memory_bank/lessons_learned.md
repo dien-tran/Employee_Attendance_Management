@@ -309,3 +309,95 @@
 - **Next.js 16.2:** Dùng `"use client"` directive cho tất cả interactive components.
 - **shadcn/ui:** Components dùng @radix-ui primitives + tailwind CSS - không phụ thuộc vào server-side rendering.
 - **API Gateway URL:** Frontend gọi API qua `http://api-gateway:8080` (Docker network) - nếu chạy local dev cần set `NEXT_PUBLIC_API_URL`.
+
+---
+
+## Phiên 6 - 2026-05-15: Task 3.6 User Profile E2E & Profile API
+
+### Đã hoàn thành
+- Viết `front-end/tests/e2e/user-profile.spec.ts` cho luồng User Profile bằng `storageState` User.
+- Thêm API hồ sơ cá nhân riêng:
+  - `GET /api/profile/me`
+  - `PUT /api/profile/me`
+- Thêm route Gateway `auth-service-profile` cho `/api/profile/**`.
+- Cập nhật `front-end/services/profile.service.ts` và `front-end/app/user/profile/page.tsx` để dùng API thật, không còn simulate API call.
+- Chuẩn hóa `PUT /api/staff/{id}` và `PATCH /api/staff/{id}/status` trả `ApiResponse<StaffResponse>`.
+- Cập nhật `API_Endpoint.md` với Profile API và response wrapper mới.
+
+### Lỗi / lệch hướng đã gặp
+
+#### 24. Không dùng Admin Staff API cho User Profile
+- **Vấn đề:** Ban đầu luồng User Profile được nối vào `staffService.update(user.id)` tức `PUT /api/staff/{id}`.
+- **Nguyên nhân:** Tận dụng API sẵn có quá nhanh mà chưa đối chiếu đúng phân quyền nghiệp vụ.
+- **Rủi ro:** `PUT /api/staff/{id}` là endpoint ADMIN. Nếu mở cho USER thì dễ tạo lỗ hổng update staff ngoài phạm vi hồ sơ cá nhân.
+- **Fix:** Tách `ProfileController` riêng với `/api/profile/me`, lấy user hiện tại từ header `X-User-Id` do Gateway inject.
+- **Bài học:** API cho "current user" nên dùng endpoint self-scoped như `/me`, không truyền `{id}` từ frontend nếu user chỉ được sửa chính mình.
+
+#### 25. Simulate API call trong UI làm E2E không đúng giá trị
+- **Vấn đề:** Profile page ban đầu chỉ `setTimeout` rồi update Zustand local state.
+- **Rủi ro:** E2E có thể pass nhưng không kiểm tra được integration thật với Gateway/backend.
+- **Fix:** Thêm `profileService.getMe()` và `profileService.updateMe()`, rồi để page gọi `GET/PUT /api/profile/me`.
+- **Bài học:** Với task tích hợp frontend-backend, UI không nên giữ mock/simulate ở luồng nghiệp vụ đã có API thật.
+
+#### 26. Gateway route phải đi cùng Controller mới
+- **Vấn đề:** Khi thêm `ProfileController @RequestMapping("/api/profile")`, cần thêm route Gateway `/api/profile/**`.
+- **Fix:** Thêm route `auth-service-profile` trong `api-gateway/application.yml` và không dùng `StripPrefix`, vì controller đã có prefix `/api/profile`.
+- **Bài học:** Mỗi controller mới trong microservice phải được đối chiếu 3 nơi: Controller mapping, Gateway route, frontend service path.
+
+#### 27. Response wrapper phải nhất quán giữa backend và frontend service
+- **Vấn đề:** Một số endpoint staff update/status từng trả raw `StaffResponse`, trong khi `apiClient` và các service frontend kỳ vọng wrapper `{code,message,result}`.
+- **Rủi ro:** Frontend phải thêm workaround kiểu `response.result ?? response`, làm service mơ hồ và dễ lỗi về sau.
+- **Fix:** Chuẩn hóa `PUT /api/staff/{id}` và `PATCH /api/staff/{id}/status` trả `ApiResponse<StaffResponse>`.
+- **Bài học:** Không sửa frontend để né contract backend lệch. Nên chuẩn hóa contract ở backend trước, sau đó frontend chỉ đọc `response.result`.
+
+#### 28. Ghi nhận lỗi tự đánh giá trước khi kết thúc task
+- **Vấn đề:** Sau khi thêm code, vẫn còn các điểm chưa polish: response lỗi chưa đồng bộ, import/order chưa sạch, line ending lẫn LF/CRLF.
+- **Fix:** Refactor lại controller response, dọn import/comment tạm, normalize line ending các file đã chạm.
+- **Bài học:** Sau khi thêm feature, cần một vòng review nhỏ theo checklist: scope nghiệp vụ, API contract, route Gateway, frontend service, E2E path, format/code style.
+
+#### 29. Browser không gọi được hostname Docker internal như `api-gateway`
+- **Vấn đề:** `front-end/lib/api-client.ts` từng mặc định `API_BASE_URL = 'http://api-gateway:8080'`.
+- **Nguyên nhân:** Nhầm giữa network của container và network của browser. `api-gateway` là DNS nội bộ Docker, nhưng JavaScript chạy trong browser tại `http://frontend` không nên gọi trực tiếp host đó.
+- **Rủi ro:** Request browser thành cross-origin (`http://frontend` → `http://api-gateway:8080`), dễ fail CORS và HttpOnly cookie không cùng domain.
+- **Fix:** Đổi default `API_BASE_URL` thành chuỗi rỗng `''`, để browser gọi relative `/api/...` qua nginx proxy. Chỉ set `NEXT_PUBLIC_API_URL` khi chạy local dev không có proxy.
+- **Bài học:** Với frontend static sau nginx, browser client nên gọi same-origin `/api`, còn nginx mới proxy sang service nội bộ Docker.
+
+#### 30. E2E API helper phải dùng cùng origin với browser session
+- **Vấn đề:** `auth.setup.ts` và `admin-crud.spec.ts` từng gọi API helper tới `http://api-gateway:8080`.
+- **Nguyên nhân:** Cleanup/setup data đi thẳng vào gateway, trong khi login UI tạo cookie cho origin `http://frontend`.
+- **Rủi ro:** `APIRequestContext` không gửi cookie `frontend` khi request sang host `api-gateway`, làm các request protected như `GET /api/staff`, `POST /api/staff`, `PATCH /api/staff/{id}/status` bị 401.
+- **Fix:** Đổi default `apiBaseURL` trong E2E thành `PLAYWRIGHT_BASE_URL` (`http://frontend` trong Docker), để helper API đi qua nginx `/api` và dùng cùng cookie domain. Vẫn giữ `E2E_API_BASE_URL` làm override khi cần.
+- **Bài học:** E2E có `storageState` HttpOnly cookie phải giữ cùng origin cho UI và API helper, trừ khi tự quản lý Authorization header riêng.
+
+#### 31. Docker build image phải khớp Node engine của Next.js
+- **Vấn đề:** `front-end/Dockerfile` dùng `node:18-alpine`, nhưng `next@16.2.0` trong `package-lock.json` yêu cầu `node >=20.9.0`.
+- **Rủi ro:** Frontend Docker build có thể fail trước khi E2E runner bắt đầu.
+- **Fix:** Đổi builder image sang `node:22-alpine`.
+- **Bài học:** Khi nâng Next.js hoặc đổi package-lock, phải kiểm tra `engines.node` của dependency chính và đồng bộ Dockerfile/runtime image.
+
+### Pattern nên áp dụng tiếp
+- API cá nhân của user: ưu tiên `/api/<resource>/me`, lấy định danh từ JWT/Gateway header, không tin `id` từ client.
+- Controller protected nội bộ: trả `ApiResponse.error(code, message)` thay vì `Map` hoặc exception rời rạc nếu project đang dùng response wrapper.
+- Frontend service: mỗi domain nghiệp vụ nên có service riêng (`profile.service.ts`) thay vì dùng nhầm service admin (`staff.service.ts`).
+- E2E: nếu task yêu cầu intercept API, intercept đúng endpoint nghiệp vụ thật, không intercept endpoint tạm hoặc endpoint sai quyền.
+- Frontend production sau nginx: browser code gọi same-origin `/api`, không hardcode DNS nội bộ Docker.
+- E2E setup/cleanup dùng cookie auth: API helper nên gọi cùng origin với `PLAYWRIGHT_BASE_URL`.
+#### 32. Next static export can create both route `.html` files and route metadata folders
+- **Van de:** Playwright setup timeout khi doi `login-email-input`, trong khi code LoginForm co selector dung.
+- **Nguyen nhan:** Nginx `try_files $uri $uri/ /index.html` uu tien folder `/admin/login/` thay vi file `/admin/login.html`. Request `/admin/login` bi redirect sang `/admin/login/`, sau do nginx tra `403 directory index forbidden` vi folder khong co `index.html`.
+- **Fix:** Trong `front-end/nginx.conf`, uu tien `$uri.html` truoc directory va rewrite trailing slash ve route khong slash:
+  - `rewrite ^/(.+)/$ /$1 permanent;`
+  - `try_files $uri.html $uri $uri/ /index.html;`
+- **Bai hoc:** Voi Next `output: 'export'` + nginx, phai kiem tra cau truc `out/` thuc te. App Router co the tao ca `route.html` va folder route metadata, nen nginx khong duoc uu tien directory truoc `.html`.
+
+#### 33. Docker healthcheck inside container should avoid ambiguous `localhost`
+- **Van de:** `frontend` container serve duoc `http://127.0.0.1/health` nhung van bi Docker danh dau `unhealthy`.
+- **Nguyen nhan:** Healthcheck dung `http://localhost/health`; trong container, `localhost` co the resolve sang IPv6 `::1`, trong khi nginx chi listen IPv4 `80`.
+- **Fix:** Doi healthcheck frontend trong `docker-compose.yml` sang `http://127.0.0.1/health`.
+- **Bai hoc:** Healthcheck Docker nen dung dia chi ro rang `127.0.0.1` neu service chi listen IPv4, de `depends_on: service_healthy` khong chan E2E runner sai cach.
+
+#### 34. E2E cleanup must follow staff business rules
+- **Van de:** Cleanup cua `admin-crud.spec.ts` tung dung hard-delete staff de don du lieu test.
+- **Nguyen nhan:** Toi uu cho teardown E2E qua nhanh ma bo qua quy tac nghiep vu: staff khong duoc xoa vat ly.
+- **Fix:** Go endpoint hard-delete staff khoi backend/docs. E2E cleanup chuyen sang `PATCH /api/staff/{id}/status?status=INACTIVE`.
+- **Bai hoc:** E2E teardown khong duoc them API trai nghiep vu chi de lam sach DB. Neu domain da co soft-disable/status, automation phai dung dung co che do.

@@ -113,7 +113,7 @@
       "id": "3.4",
       "domain": "E2E TESTING",
       "name": "Thiết lập Global Auth State (Login 1 lần)",
-      "status": "PENDING",
+      "status": "DONE",
       "description": "Viết file `front-end/tests/e2e/auth.setup.ts`. Cấu hình Playwright dependencies để chạy file này đầu tiên. Luồng: Truy cập form login, đăng nhập Admin -> Lưu state vào `playwright/.auth/admin.json`. Đăng nhập User -> Lưu state vào `playwright/.auth/user.json`. Chỉ lưu session, không assert phức tạp.",
       "rules_reference": [
         "e2e_testing_rules.md#6",
@@ -124,17 +124,31 @@
       "id": "3.5",
       "domain": "E2E TESTING",
       "name": "Viết kịch bản E2E - UI Validation & Luồng nghiệp vụ Admin",
-      "status": "PENDING",
-      "description": "Sử dụng `storageState` Admin. Viết `admin-crud.spec.ts`. 1. Test lỗi form Login (UI Validation). 2. Test Admin tạo nhân viên (Đợi API Gateway trả 201 -> Đợi Toast -> Assert DOM). 3. Dọn dẹp data rác bằng hook `test.afterAll`. Tuân thủ tuyệt đối Verify 3 cấp độ (Mục 5).",
+      "status": "DONE",
+      "description": "Đã viết `front-end/tests/e2e/admin-crud.spec.ts`. Bao gồm test UI validation form login, test Admin tạo nhân viên bằng `storageState` admin, đợi API Gateway trả 201, assert route/toast/DOM theo Verify 3 cấp độ, và dọn data E2E qua `test.afterAll` gọi `PATCH /api/staff/{id}/status?status=INACTIVE` để không xóa vật lý staff.",
       "rules_reference": ["e2e_testing_rules.md"]
     },
     {
       "id": "3.6",
       "domain": "E2E TESTING",
       "name": "Viết kịch bản E2E - Quản lý hồ sơ cá nhân (User Profile)",
-      "status": "PENDING",
-      "description": "Sử dụng `storageState` User. Viết `user-profile.spec.ts`. Truy cập profile, cập nhật thông tin (Intercept API trả 200). Assert DOM cập nhật real-time. Restore lại data sau khi test.",
+      "status": "DONE",
+      "description": "Đã viết `front-end/tests/e2e/user-profile.spec.ts` dùng `storageState` User. Test truy cập profile, cập nhật name/department/phone, intercept `PUT /api/profile/me` trả 200, assert Network/URL/DOM/toast, và restore lại data gốc trong block `finally`. Đã thêm Profile API riêng (`GET/PUT /api/profile/me`) và cập nhật Profile page để gọi API thật qua `profileService`, không còn simulate API call.",
       "rules_reference": ["e2e_testing_rules.md"]
+    },
+    {
+      "id": "3.7",
+      "domain": "E2E TESTING",
+      "name": "Chạy Playwright Automation qua Docker E2E Runner và thu thập kết quả",
+      "status": "DONE",
+      "description": "Đã chạy Playwright automation qua Docker E2E Runner. Lần đầu fail do container auth-service đang dùng image cũ chưa có ProfileController nên `GET /api/profile/me` trả 404; đã rebuild auth-service/api-gateway/frontend và chạy lại `docker-compose run --rm e2e-runner` thành công. Kết quả cuối: 4/4 tests passed (setup auth, admin login validation, admin CRUD, user profile).",
+      "rules_reference": [
+        "e2e_testing_rules.md#1",
+        "e2e_testing_rules.md#3",
+        "e2e_testing_rules.md#5",
+        "e2e_testing_rules.md#6",
+        "e2e_testing_rules.md#7"
+      ]
     }
 
   ],
