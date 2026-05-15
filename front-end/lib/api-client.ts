@@ -1,12 +1,11 @@
 /**
  * Centralized API Client
- * - Sends HttpOnly Cookie (access_token) automatically via withCredentials
- * - All requests go through API Gateway: http://localhost:8080
- * - Supports both Axios and native Fetch
+ * - Sends HttpOnly Cookie (access_token) automatically via credentials: 'include'
+ * - Uses same-origin /api proxy by default so cookies and CORS stay aligned
+ * - Set NEXT_PUBLIC_API_URL only when running without the nginx /api proxy
  */
 
-// API Gateway base URL for Docker internal network
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://api-gateway:8080'
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
 
 // Standard API response wrapper from backend
 export interface ApiResponse<T = any> {

@@ -15,6 +15,7 @@ export interface AuthUser {
   role: 'ADMIN' | 'USER'
   department?: string
   position?: string
+  phone?: string
   image?: string
 }
 

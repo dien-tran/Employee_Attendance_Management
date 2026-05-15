@@ -1,7 +1,7 @@
 # ============================================================
 # STAGE 1: Build Next.js Frontend (Static Export)
 # ============================================================
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 

@@ -5,6 +5,7 @@ import { Chatbot } from '@/components/features/chatbot'
 import { MotionPage, MotionSection, StaggerContainer, StaggerItem, MotionCard } from '@/components/features/motion'
 import { EmployeeAvatar } from '@/components/features/employee-avatar'
 import { staffService, type StaffDTO, type StaffCreationRequest } from "@/services/staff.service"
+import { toast } from "@/hooks/use-toast"
 import { Search, UserPlus, Mail, Building2, LayoutGrid, List, X, Shield } from "lucide-react"
 import { MotionButton } from '@/components/features/motion'
 
@@ -64,6 +65,11 @@ export default function AdminEmployeesPage() {
     try {
       const created = await staffService.create(newStaff)
       setStaffList((prev) => [created, ...prev])
+      toast({
+        title: "Employee created successfully",
+        description: `${created.name} has been added to the employee list.`,
+        testId: "toast-success-msg",
+      })
       setShowAddModal(false)
       setNewStaff({ name: "", email: "", dob: "", department: "", position: "", phone: "",
         identityCard: "", bankAccount: "", bankName: "", role: "USER" })

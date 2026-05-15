@@ -1,11 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Chatbot } from '@/components/features/chatbot'
 import { EmployeeAvatar } from '@/components/features/employee-avatar'
 import { MotionPage, MotionSection, StaggerContainer, StaggerItem, MotionCard, MotionButton } from '@/components/features/motion'
 import { ThemeToggle } from '@/components/features/theme-toggle'
 import { useAuthStore } from "@/store/authStore"
+import { profileService } from "@/services/profile.service"
+import { toast } from "@/hooks/use-toast"
 import { attendanceRecords } from "@/lib/mock-data"
 import {
   Mail, Building2, Calendar, Clock, TrendingUp, Palette,
@@ -21,6 +23,46 @@ export default function ProfilePage() {
     department: user?.department || "",
   })
   const [saving, setSaving] = useState(false)
+  const [profileLoaded, setProfileLoaded] = useState(false)
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadProfile() {
+      if (!user || profileLoaded) {
+        return
+      }
+
+      try {
+        const profile = await profileService.getMe()
+
+        if (!isMounted) {
+          return
+        }
+
+        setUser({
+          ...user,
+          id: profile.id,
+          staffId: profile.staffId,
+          name: profile.name,
+          email: profile.email,
+          role: profile.role,
+          department: profile.department,
+          position: profile.position,
+          phone: profile.phone,
+        })
+        setProfileLoaded(true)
+      } catch {
+        // Keep the persisted login profile if the detail endpoint is temporarily unavailable.
+      }
+    }
+
+    loadProfile()
+
+    return () => {
+      isMounted = false
+    }
+  }, [profileLoaded, setUser, user])
 
   // Use first mock employee as fallback if no user in store
   const currentEmployee = {
@@ -29,7 +71,7 @@ export default function ProfilePage() {
     role: user?.role === "ADMIN" ? "System Administrator" : "Senior Developer",
     department: user?.department || "Engineering",
     image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face",
-    id: user?.id || "1",
+    id: user?.staffId || user?.id || "1",
   }
 
   const myRecords = attendanceRecords.filter((r) => r.employeeId === currentEmployee.id)
@@ -48,14 +90,43 @@ export default function ProfilePage() {
   }
 
   const handleSave = async () => {
-    setSaving(true)
-    // Simulate API call
-    await new Promise((r) => setTimeout(r, 600))
-    if (user) {
-      setUser({ ...user, name: editForm.name, department: editForm.department, phone: editForm.phone })
+    if (!user) {
+      return
     }
-    setSaving(false)
-    setIsEditing(false)
+
+    setSaving(true)
+    try {
+      const updatedStaff = await profileService.updateMe({
+        name: editForm.name,
+        department: editForm.department,
+        phone: editForm.phone,
+      })
+
+      setUser({
+        ...user,
+        id: updatedStaff?.id || user.id,
+        staffId: updatedStaff?.staffId || user.staffId,
+        name: updatedStaff?.name || editForm.name,
+        department: updatedStaff?.department || editForm.department,
+        phone: updatedStaff?.phone || editForm.phone,
+        position: updatedStaff?.position || user.position,
+      })
+
+      toast({
+        title: "Profile updated successfully",
+        testId: "toast-success-msg",
+      })
+      setIsEditing(false)
+    } catch (error) {
+      toast({
+        title: "Unable to update profile",
+        description: error instanceof Error ? error.message : "Please try again later",
+        variant: "destructive",
+        testId: "toast-error-msg",
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   const settingsItems = [
@@ -166,6 +237,10 @@ export default function ProfilePage() {
                   <div className="flex items-center justify-between px-6 py-4">
                     <span className="text-sm text-muted-foreground">Department</span>
                     <span className="font-medium text-foreground" data-testid="profile-department-value">{currentEmployee.department}</span>
+                  </div>
+                  <div className="flex items-center justify-between px-6 py-4">
+                    <span className="text-sm text-muted-foreground">Phone</span>
+                    <span className="font-medium text-foreground" data-testid="profile-phone-value">{user?.phone || "Not provided"}</span>
                   </div>
                   <div className="flex items-center justify-between px-6 py-4">
                     <span className="text-sm text-muted-foreground">Working Hours</span>

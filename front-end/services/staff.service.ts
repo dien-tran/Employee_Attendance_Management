@@ -4,7 +4,7 @@
  * Tích hợp với API Gateway: http://api-gateway:8080/api/staff
  */
 
-import { apiClient, type ApiResponse } from '@/lib/api-client'
+import { apiClient } from '@/lib/api-client'
 
 export interface StaffCreationRequest {
   name: string

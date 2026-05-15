@@ -1,45 +1,30 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
+
 export default defineConfig({
-  // Global setup
-  globalSetup: require.resolve('./test/global-setup.ts'),
-  
-  // Test suite configuration
+  testDir: './tests/e2e',
+  outputDir: './test-results',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 1 : 0,
+  reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
+  use: {
+    baseURL,
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    trace: 'retain-on-failure',
+  },
   projects: [
     {
+      name: 'setup',
+      testMatch: /auth\.setup\.ts/,
+    },
+    {
       name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        baseURL: process.env.BASE_URL || 'http://localhost:3000',
-        launchOptions: {
-          viewport: { width: 1920, height: 1080 },
-        },
-      },
+      dependencies: ['setup'],
+      testIgnore: /auth\.setup\.ts/,
+      use: { ...devices['Desktop Chrome'] },
     },
   ],
-  
-  // Test lifecyle
-  testDir: './tests/e2e',
-  
-  // Artifacts and debugging
-  screenshot: 'only-on-failure',
-  video: 'retain-on-failure',
-  trace: 'retain-on-failure',
-  
-  // Reporting
-  reporter: [['html', { open: 'never' }]],
-   
-  // Auto-wait for elements
-  use: {
-    actionTimeout: 5000,
-    acceptDownloads: true,
-    trace: 'on-first-retry',
-  },
-  
-  // Parallelization
-  workers: process.env.WORKERS ? parseInt(process.env.WORKERS) : 1,
-  fullyParallel: true,
-  
-  // Quieting down the logs
-  quiet: true,
 });
