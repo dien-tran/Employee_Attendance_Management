@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+.tmp/
+debug/
+log/
+TestImage/
+testImage/
+
+# Models (Large files)
+models/*.zip
+models/*.zip.download
+models/buffalo_l/*
+models/anti_spoof/*
+!models/buffalo_l/.gitkeep
+!models/anti_spoof/.gitkeep
+
+# IDEs
+.vscode/
+.idea/
+
+# Frontend build artifacts
+frontend/.next/
+frontend/out/
+
+# OS
+.DS_Store
+Thumbs.db
