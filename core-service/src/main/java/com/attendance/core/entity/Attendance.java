@@ -32,4 +32,7 @@ public class Attendance {
 
     @Column(name = "date", nullable = false)
     private LocalDate date; // Ngày chấm công
+
+    @Column(name = "on_time")
+    private Boolean onTime; // Có trễ giờ hay không (TRUE: đúng giờ / FALSE: trễ)
 }

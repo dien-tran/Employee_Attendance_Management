@@ -27,11 +27,11 @@ public class AttendanceController {
      */
     @PostMapping("/check-in")
     public ResponseEntity<ApiResponse<Attendance>> checkIn(
-            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-Staff-Id") String staffId,
             @RequestParam(defaultValue = "CHECK_IN") String type) {
 
-        log.info("Manual check-in request: userId={}, type={}", userId, type);
-        Attendance attendance = attendanceService.checkIn(userId, type);
+        log.info("Manual check-in request: staffId={}, type={}", staffId, type);
+        Attendance attendance = attendanceService.checkIn(staffId, type);
         return ResponseEntity.ok(ApiResponse.success("Attendance recorded successfully", attendance));
     }
 
@@ -42,7 +42,7 @@ public class AttendanceController {
      */
     @GetMapping("/my")
     public ResponseEntity<ApiResponse<List<Attendance>>> getMyAttendance(
-            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-Staff-Id") String staffId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
 
@@ -50,7 +50,7 @@ public class AttendanceController {
         if (startDate == null) startDate = LocalDate.now().withDayOfMonth(1);
         if (endDate == null) endDate = LocalDate.now();
 
-        List<Attendance> records = attendanceService.getMyAttendance(userId, startDate, endDate);
+        List<Attendance> records = attendanceService.getMyAttendance(staffId, startDate, endDate);
         return ResponseEntity.ok(ApiResponse.success(records));
     }
 

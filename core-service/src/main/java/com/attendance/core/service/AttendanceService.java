@@ -1,5 +1,6 @@
 package com.attendance.core.service;
 
+import com.attendance.core.dto.request.SyncAttendanceRequest;
 import com.attendance.core.entity.Attendance;
 import com.attendance.core.repository.AttendanceRepository;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -47,6 +49,29 @@ public class AttendanceService {
         return saved;
     }
 
+    public Attendance syncAttendance(SyncAttendanceRequest request) {
+        LocalDate attendanceDate = request.getDate() != null
+                ? request.getDate()
+                : request.getTimestamp().toLocalDate();
+
+        Attendance attendance = Attendance.builder()
+                .staffId(request.getStaffId())
+                .type(request.getType().toUpperCase())
+                .timestamp(request.getTimestamp())
+                .date(attendanceDate)
+                .onTime(request.getOnTime())
+                .build();
+
+        Attendance saved = attendanceRepository.save(attendance);
+        log.info(
+                "Internal attendance synced: staffId={}, type={}, timestamp={}, onTime={}",
+                saved.getStaffId(),
+                saved.getType(),
+                saved.getTimestamp(),
+                saved.getOnTime());
+        return saved;
+    }
+
     /**
      * Lấy lịch sử chấm công của nhân viên theo tháng
      */
@@ -73,5 +98,15 @@ public class AttendanceService {
      */
     public List<Attendance> getStaffTodayAttendance(String staffId) {
         return attendanceRepository.findByStaffIdAndDateOrderByTimestampAsc(staffId, LocalDate.now());
+    }
+
+    public boolean deleteAttendance(UUID id) {
+        if (!attendanceRepository.existsById(id)) {
+            return false;
+        }
+
+        attendanceRepository.deleteById(id);
+        log.info("Internal attendance deleted: id={}", id);
+        return true;
     }
 }
