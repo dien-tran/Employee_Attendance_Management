@@ -1,8 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { apiBaseURL } from './helpers/auth-token';
 
 const adminStatePath = 'playwright/.auth/admin.json';
-const frontendBaseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
-const apiBaseURL = process.env.E2E_API_BASE_URL ?? frontendBaseURL;
 const createdStaffIds = new Set<string>();
 
 test.describe('Admin login UI validation', () => {

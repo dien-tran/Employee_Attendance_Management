@@ -1,9 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
+const isTtlMode = process.env.E2E_TTL_MODE === 'true';
 
 export default defineConfig({
   testDir: './tests/e2e',
+  testMatch: isTtlMode ? /auth-token-ttl\.spec\.ts/ : undefined,
   outputDir: './test-results',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
@@ -22,7 +24,7 @@ export default defineConfig({
     },
     {
       name: 'chromium',
-      dependencies: ['setup'],
+      dependencies: isTtlMode ? [] : ['setup'],
       testIgnore: /auth\.setup\.ts/,
       use: { ...devices['Desktop Chrome'] },
     },

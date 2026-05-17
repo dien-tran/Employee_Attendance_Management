@@ -1,5 +1,7 @@
-import { redirect } from "next/navigation";
+"use client"
+
+import { RootRedirect } from "@/components/auth/auth-redirect"
 
 export default function RootPage() {
-  redirect("/user/home");
+  return <RootRedirect />
 }

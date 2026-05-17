@@ -1,24 +1,23 @@
 import { expect, test, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { apiBaseURL, e2eUserDob, e2eUserEmail, requiredEnv } from './helpers/auth-token';
 
 const authDir = path.join(__dirname, '../../playwright/.auth');
 const adminStatePath = path.join(authDir, 'admin.json');
 const userStatePath = path.join(authDir, 'user.json');
-const frontendBaseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
-const apiBaseURL = process.env.E2E_API_BASE_URL ?? frontendBaseURL;
 
 const adminCredentials = {
-  email: process.env.E2E_ADMIN_EMAIL ?? 'admin@example.com',
-  password: process.env.E2E_ADMIN_PASSWORD ?? 'admin123',
+  email: requiredEnv('E2E_ADMIN_EMAIL'),
+  password: requiredEnv('E2E_ADMIN_PASSWORD'),
 };
 
 const e2eUser = {
-  email: process.env.E2E_USER_EMAIL ?? 'e2e_test_user@example.com',
-  password: process.env.E2E_USER_PASSWORD ?? '20031998',
+  email: e2eUserEmail,
+  password: requiredEnv('E2E_USER_PASSWORD'),
   profile: {
     name: 'E2E Test User',
-    dob: process.env.E2E_USER_DOB ?? '1998-03-20',
+    dob: e2eUserDob,
     department: 'QA',
     position: 'E2E Tester',
     phone: '0911111111',
@@ -32,7 +31,7 @@ const e2eUser = {
 test('authenticate admin and user sessions', async ({ page, browser }) => {
   fs.mkdirSync(authDir, { recursive: true });
 
-  await loginViaUi(page, '/admin/login', adminCredentials.email, adminCredentials.password, /\/admin\/dashboard/);
+  await loginViaUi(page, '/admin/login', adminCredentials.email, adminCredentials.password, /\/admin\/(dashboard|employees)/);
   await page.context().storageState({ path: adminStatePath });
 
   await ensureE2eUser(page);

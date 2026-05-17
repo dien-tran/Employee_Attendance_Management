@@ -50,6 +50,7 @@ export function EmployeeSidebar() {
 
   return (
     <motion.aside
+      data-testid="user-sidebar"
       className={cn(
         "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-sidebar-border bg-sidebar",
         "transition-[width] duration-300 ease-in-out"

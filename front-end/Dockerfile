@@ -20,8 +20,9 @@ RUN npm run build
 # ============================================================
 FROM nginx:1.25-alpine
 
-# Copy nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy nginx template. The official nginx entrypoint renders environment
+# variables from /etc/nginx/templates/*.template at container startup.
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
 # Copy built static files from builder stage
 COPY --from=builder /app/out /usr/share/nginx/html
