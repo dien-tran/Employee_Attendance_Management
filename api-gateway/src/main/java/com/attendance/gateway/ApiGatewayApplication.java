@@ -6,12 +6,27 @@ import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
+import org.springframework.web.reactive.socket.server.WebSocketService;
+import org.springframework.web.reactive.socket.server.support.HandshakeWebSocketService;
+import org.springframework.web.reactive.socket.server.upgrade.ReactorNettyRequestUpgradeStrategy;
+import reactor.netty.http.server.WebsocketServerSpec;
 
 @SpringBootApplication
 public class ApiGatewayApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(ApiGatewayApplication.class, args);
+    }
+
+    @Bean
+    @Primary
+    public WebSocketService largeFrameWebSocketService(
+            @Value("${spring.cloud.gateway.httpclient.websocket.max-frame-payload-length:2097152}") int maxFramePayloadLength) {
+        return new HandshakeWebSocketService(
+                new ReactorNettyRequestUpgradeStrategy(
+                        () -> WebsocketServerSpec.builder()
+                                .maxFramePayloadLength(maxFramePayloadLength)));
     }
 
     @Bean

@@ -5,6 +5,12 @@ spring:
   application:
     name: api-gateway
 
+  cloud:
+    gateway:
+      httpclient:
+        websocket:
+          max-frame-payload-length: ${GATEWAY_WEBSOCKET_MAX_FRAME_PAYLOAD_LENGTH:2097152}
+
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.security.reactive.ReactiveSecurityAutoConfiguration
