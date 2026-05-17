@@ -91,15 +91,19 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                     String roles = finalClaimsSet.getClaim("scope") != null
                             ? finalClaimsSet.getClaim("scope").toString()
                             : "";
+                    String staffId = finalClaimsSet.getClaim("staffId") != null
+                            ? finalClaimsSet.getClaim("staffId").toString()
+                            : "";
 
                     ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
                             .header("X-User-Id", userId)
+                            .header("X-Staff-Id", staffId)
                             .header("X-User-Roles", roles)
                             // Xóa Authorization header để downstream service không thấy JWT
                             .headers(headers -> headers.remove(HttpHeaders.AUTHORIZATION))
                             .build();
 
-                    log.debug("JWT verified. UserId={}, Roles={}", userId, roles);
+                    log.debug("JWT verified. UserId={}, StaffId={}, Roles={}", userId, staffId, roles);
                     return chain.filter(exchange.mutate().request(mutatedRequest).build());
                 })
                 .onErrorResume(e -> {
