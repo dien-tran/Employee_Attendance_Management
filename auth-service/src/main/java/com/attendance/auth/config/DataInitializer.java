@@ -6,9 +6,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 
@@ -16,11 +18,8 @@ import java.time.LocalDate;
  * DataInitializer: Tự động tạo tài khoản ADMIN hệ thống khi khởi động.
  * Chỉ tạo nếu chưa tồn tại (idempotent).
  *
- * Tài khoản mặc định:
- *   - Email   : admin@example.com
- *   - Password: admin123
- *   - Role    : ADMIN
- *   - StaffId : SYS000001
+ * Admin seed is controlled by environment-backed properties so production
+ * deployments do not carry default credentials in source code.
  */
 @Slf4j
 @Component
@@ -30,21 +29,38 @@ public class DataInitializer implements ApplicationRunner {
     private final StaffRepository staffRepository;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
 
-    private static final String ADMIN_EMAIL    = "admin@example.com";
-    private static final String ADMIN_PASSWORD = "admin123";
-    private static final String ADMIN_STAFF_ID = "SYS000001";
+    @Value("${app.seed-admin.enabled:false}")
+    private boolean seedAdminEnabled;
+
+    @Value("${app.seed-admin.email:}")
+    private String adminEmail;
+
+    @Value("${app.seed-admin.password:}")
+    private String adminPassword;
+
+    @Value("${app.seed-admin.staff-id:SYS000001}")
+    private String adminStaffId;
 
     @Override
     public void run(ApplicationArguments args) {
-        if (staffRepository.existsByEmail(ADMIN_EMAIL)) {
+        if (!seedAdminEnabled) {
+            log.info("[DataInitializer] Admin seed is disabled.");
+            return;
+        }
+
+        if (!StringUtils.hasText(adminEmail) || !StringUtils.hasText(adminPassword)) {
+            throw new IllegalStateException("SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD are required when SEED_ADMIN_ENABLED=true");
+        }
+
+        if (staffRepository.existsByEmail(adminEmail)) {
             log.info("[DataInitializer] Admin account already exists, skipping seed.");
             return;
         }
 
         Staff admin = Staff.builder()
-                .staffId(ADMIN_STAFF_ID)
+                .staffId(adminStaffId)
                 .name("System Administrator")
-                .email(ADMIN_EMAIL)
+                .email(adminEmail)
                 .dob(LocalDate.of(1990, 1, 1))
                 .department("IT")
                 .position("System Admin")
@@ -53,12 +69,12 @@ public class DataInitializer implements ApplicationRunner {
                 .identityCard("000000000000")
                 .bankAccount("0000000000")
                 .bankName("Vietcombank")
-                .password(passwordEncoder.encode(ADMIN_PASSWORD))
+                .password(passwordEncoder.encode(adminPassword))
                 .role("ADMIN")
                 .status("ACTIVE")
                 .build();
 
         staffRepository.save(admin);
-        log.info("[DataInitializer] ✅ Admin account created: email={}, staffId={}", ADMIN_EMAIL, ADMIN_STAFF_ID);
+        log.info("[DataInitializer] Admin account created: email={}, staffId={}", adminEmail, adminStaffId);
     }
 }

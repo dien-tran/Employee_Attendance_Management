@@ -1,1 +1,2 @@
+/app/src/test/java/com/attendance/auth/AuthTokenIntegrationTest.java
 /app/src/test/java/com/attendance/auth/StaffIntegrationTest.java

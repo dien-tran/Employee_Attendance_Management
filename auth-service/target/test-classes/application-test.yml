@@ -24,7 +24,9 @@ eureka:
 
 app:
   jwt:
-    signed-key: 0e796109b182226d16e5ba239be1c9ce38c78d378444b4b8e2058e914ff887b8
+    signed-key: test-only-signing-key-with-at-least-sixty-four-bytes-for-hs512-tests
+    access-token-ttl-seconds: 86400
+    sliding-session-ttl-seconds: 86400
 
 logging:
   level:

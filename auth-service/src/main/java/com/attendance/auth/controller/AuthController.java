@@ -2,6 +2,7 @@ package com.attendance.auth.controller;
 
 import com.attendance.auth.dto.request.IntrospectRequest;
 import com.attendance.auth.dto.request.LoginRequest;
+import com.attendance.auth.dto.request.TokenRequest;
 import com.attendance.auth.dto.response.ApiResponse;
 import com.attendance.auth.dto.response.IntrospectResponse;
 import com.attendance.auth.dto.response.LoginResponse;
@@ -23,33 +24,17 @@ public class AuthController {
 
     private final AuthService authService;
 
-    /**
-     * POST /auth/login
-     * Đăng nhập bằng email hoặc staffId + password
-     * Trả về JWT trong HttpOnly Cookie và trong body
-     */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(
             @Valid @RequestBody LoginRequest request,
             HttpServletResponse response) {
 
         LoginResponse loginResponse = authService.login(request);
-
-        // Set HttpOnly Cookie
-        Cookie cookie = new Cookie("access_token", loginResponse.getToken());
-        cookie.setHttpOnly(true);
-        cookie.setSecure(false); // Set true khi dùng HTTPS
-        cookie.setPath("/");
-        cookie.setMaxAge((int) loginResponse.getExpiresIn());
-        response.addCookie(cookie);
+        addAccessTokenCookie(response, loginResponse.getToken(), loginResponse.getExpiresIn());
 
         return ResponseEntity.ok(ApiResponse.success("Login successful", loginResponse));
     }
 
-    /**
-     * POST /auth/introspect
-     * Kiểm tra token có hợp lệ không (dùng bởi API Gateway)
-     */
     @PostMapping("/introspect")
     public ResponseEntity<ApiResponse<IntrospectResponse>> introspect(
             @Valid @RequestBody IntrospectRequest request) {
@@ -58,45 +43,69 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(introspectResponse));
     }
 
-    /**
-     * POST /auth/logout
-     * Đăng xuất: invalidate token, xóa cookie
-     */
-    @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<LoginResponse>> refresh(
+            @RequestBody(required = false) TokenRequest tokenRequest,
             HttpServletRequest request,
             HttpServletResponse response) {
 
-        // Lấy token từ cookie
-        String token = null;
-        if (request.getCookies() != null) {
-            for (Cookie cookie : request.getCookies()) {
-                if ("access_token".equals(cookie.getName())) {
-                    token = cookie.getValue();
-                    break;
-                }
-            }
-        }
+        String token = extractToken(request, tokenRequest);
+        LoginResponse refreshResponse = authService.refresh(token);
+        addAccessTokenCookie(response, refreshResponse.getToken(), refreshResponse.getExpiresIn());
 
-        // Fallback: lấy từ Authorization header
-        if (token == null) {
-            String authHeader = request.getHeader("Authorization");
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                token = authHeader.substring(7);
-            }
-        }
+        return ResponseEntity.ok(ApiResponse.success("Token refreshed successfully", refreshResponse));
+    }
 
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @RequestBody(required = false) TokenRequest tokenRequest,
+            HttpServletRequest request,
+            HttpServletResponse response) {
+
+        String token = extractToken(request, tokenRequest);
         if (token != null) {
             authService.logout(token);
         }
 
-        // Xóa cookie
+        clearAccessTokenCookie(response);
+        return ResponseEntity.ok(ApiResponse.success("Logout successful", null));
+    }
+
+    private String extractToken(HttpServletRequest request, TokenRequest tokenRequest) {
+        if (tokenRequest != null && tokenRequest.getToken() != null && !tokenRequest.getToken().isBlank()) {
+            return tokenRequest.getToken();
+        }
+
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("access_token".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+
+        return null;
+    }
+
+    private void addAccessTokenCookie(HttpServletResponse response, String token, long maxAgeSeconds) {
+        Cookie cookie = new Cookie("access_token", token);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(false);
+        cookie.setPath("/");
+        cookie.setMaxAge((int) maxAgeSeconds);
+        response.addCookie(cookie);
+    }
+
+    private void clearAccessTokenCookie(HttpServletResponse response) {
         Cookie cookie = new Cookie("access_token", "");
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         cookie.setMaxAge(0);
         response.addCookie(cookie);
-
-        return ResponseEntity.ok(ApiResponse.success("Logout successful", null));
     }
 }

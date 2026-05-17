@@ -31,10 +31,18 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private static final long VALID_DURATION_SECONDS = 86400; // 24 giờ
+    private static final String SESSION_ID_CLAIM = "sessionId";
+    private static final String SESSION_STARTED_AT_CLAIM = "sessionStartedAt";
+    private static final String SESSION_EXPIRES_AT_CLAIM = "sessionExpiresAt";
 
     @Value("${app.jwt.signed-key}")
     private String signedKey;
+
+    @Value("${app.jwt.access-token-ttl-seconds}")
+    private long accessTokenTtlSeconds;
+
+    @Value("${app.jwt.sliding-session-ttl-seconds}")
+    private long slidingSessionTtlSeconds;
 
     private final StaffRepository staffRepository;
     private final InvalidatedTokenRepository invalidatedTokenRepository;
@@ -60,16 +68,63 @@ public class AuthService {
         }
 
         // Tạo JWT token
-        String token = generateToken(staff);
+        Instant now = Instant.now();
+        Instant sessionExpiresAt = now.plus(slidingSessionTtlSeconds, ChronoUnit.SECONDS);
+        String token = generateToken(staff, UUID.randomUUID().toString(), now, sessionExpiresAt, now);
 
         return LoginResponse.builder()
                 .token(token)
                 .tokenType("Bearer")
-                .expiresIn(VALID_DURATION_SECONDS)
+                .expiresIn(secondsUntilTokenExpiry(now, sessionExpiresAt))
                 .staffId(staff.getStaffId())
                 .name(staff.getName())
                 .role(staff.getRole())
                 .build();
+    }
+
+    public LoginResponse refresh(String token) {
+        if (token == null || token.isBlank()) {
+            throw new RuntimeException("Token is required");
+        }
+
+        IntrospectRequest introspectRequest = new IntrospectRequest();
+        introspectRequest.setToken(token);
+        IntrospectResponse introspection = introspect(introspectRequest);
+        if (!introspection.isValid()) {
+            throw new RuntimeException("Invalid token");
+        }
+
+        try {
+            SignedJWT signedJWT = SignedJWT.parse(token);
+            JWTClaimsSet claims = signedJWT.getJWTClaimsSet();
+
+            Staff staff = resolveStaffFromClaims(claims);
+            if ("INACTIVE".equals(staff.getStatus())) {
+                throw new RuntimeException("Account is inactive");
+            }
+
+            Instant now = Instant.now();
+            Instant sessionStartedAt = getSessionStartedAt(claims);
+            Instant sessionExpiresAt = getSessionExpiresAt(claims);
+            if (!sessionExpiresAt.isAfter(now)) {
+                throw new RuntimeException("Session has expired");
+            }
+
+            logout(token);
+            String refreshedToken = generateToken(staff, getSessionId(claims), sessionStartedAt, sessionExpiresAt, now);
+
+            return LoginResponse.builder()
+                    .token(refreshedToken)
+                    .tokenType("Bearer")
+                    .expiresIn(secondsUntilTokenExpiry(now, sessionExpiresAt))
+                    .staffId(staff.getStaffId())
+                    .name(staff.getName())
+                    .role(staff.getRole())
+                    .build();
+        } catch (ParseException e) {
+            log.warn("Failed to parse token during refresh: {}", e.getMessage());
+            throw new RuntimeException("Invalid token");
+        }
     }
 
     /**
@@ -97,6 +152,11 @@ public class AuthService {
             }
 
             // Kiểm tra blacklist (đã logout chưa)
+            Instant sessionExpiresAt = getSessionExpiresAt(claims);
+            if (!sessionExpiresAt.isAfter(Instant.now())) {
+                return IntrospectResponse.builder().valid(false).build();
+            }
+
             String jti = claims.getJWTID();
             if (invalidatedTokenRepository.existsById(jti)) {
                 log.info("Token {} is blacklisted (logged out)", jti);
@@ -147,25 +207,88 @@ public class AuthService {
         }
     }
 
+    private Staff resolveStaffFromClaims(JWTClaimsSet claims) {
+        Object userId = claims.getClaim("userId");
+        if (userId != null) {
+            try {
+                return staffRepository.findById(UUID.fromString(userId.toString()))
+                        .orElseThrow(() -> new RuntimeException("Staff not found"));
+            } catch (IllegalArgumentException e) {
+                throw new RuntimeException("Invalid userId claim");
+            }
+        }
+
+        return staffRepository.findByEmail(claims.getSubject())
+                .orElseThrow(() -> new RuntimeException("Staff not found"));
+    }
+
+    private String getSessionId(JWTClaimsSet claims) {
+        Object sessionId = claims.getClaim(SESSION_ID_CLAIM);
+        return sessionId != null ? sessionId.toString() : UUID.randomUUID().toString();
+    }
+
+    private Instant getSessionStartedAt(JWTClaimsSet claims) {
+        Object sessionStartedAt = claims.getClaim(SESSION_STARTED_AT_CLAIM);
+        if (sessionStartedAt == null) {
+            return claims.getIssueTime().toInstant();
+        }
+
+        return Instant.ofEpochSecond(Long.parseLong(sessionStartedAt.toString()));
+    }
+
+    private Instant getSessionExpiresAt(JWTClaimsSet claims) {
+        Object sessionExpiresAt = claims.getClaim(SESSION_EXPIRES_AT_CLAIM);
+        if (sessionExpiresAt == null) {
+            return claims.getExpirationTime().toInstant();
+        }
+
+        return Instant.ofEpochSecond(Long.parseLong(sessionExpiresAt.toString()));
+    }
+
+    private long secondsUntilTokenExpiry(Instant now, Instant sessionExpiresAt) {
+        validateTokenTtlConfig();
+        return Math.min(accessTokenTtlSeconds, Math.max(0, now.until(sessionExpiresAt, ChronoUnit.SECONDS)));
+    }
+
+    private void validateTokenTtlConfig() {
+        if (accessTokenTtlSeconds <= 0) {
+            throw new IllegalStateException("JWT_ACCESS_TOKEN_TTL_SECONDS must be greater than 0");
+        }
+
+        if (slidingSessionTtlSeconds <= 0) {
+            throw new IllegalStateException("JWT_SLIDING_SESSION_TTL_SECONDS must be greater than 0");
+        }
+    }
+
     /**
      * Tạo JWT token với HS512
      */
-    private String generateToken(Staff staff) {
+    private String generateToken(
+            Staff staff,
+            String sessionId,
+            Instant sessionStartedAt,
+            Instant sessionExpiresAt,
+            Instant issuedAt) {
         try {
+            validateTokenTtlConfig();
             JWSHeader header = new JWSHeader(JWSAlgorithm.HS512);
 
             // Scope: ROLE_ADMIN hoặc ROLE_USER
             String scope = "ROLE_" + staff.getRole();
+            Instant tokenExpiresAt = issuedAt.plus(secondsUntilTokenExpiry(issuedAt, sessionExpiresAt), ChronoUnit.SECONDS);
 
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                     .subject(staff.getEmail())
                     .issuer("attendance-system")
-                    .issueTime(new Date())
-                    .expirationTime(Date.from(Instant.now().plus(VALID_DURATION_SECONDS, ChronoUnit.SECONDS)))
+                    .issueTime(Date.from(issuedAt))
+                    .expirationTime(Date.from(tokenExpiresAt))
                     .jwtID(UUID.randomUUID().toString())
                     .claim("userId", staff.getId().toString())
                     .claim("staffId", staff.getStaffId())
                     .claim("scope", scope)
+                    .claim(SESSION_ID_CLAIM, sessionId)
+                    .claim(SESSION_STARTED_AT_CLAIM, sessionStartedAt.getEpochSecond())
+                    .claim(SESSION_EXPIRES_AT_CLAIM, sessionExpiresAt.getEpochSecond())
                     .build();
 
             Payload payload = new Payload(claimsSet.toJSONObject());

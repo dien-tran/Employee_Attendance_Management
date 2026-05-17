@@ -1,17 +1,17 @@
 server:
-  port: 8081
+  port: ${SERVER_PORT:8081}
 
 spring:
   application:
     name: auth-service
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/auth_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:root}
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:auth_db}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=${DB_TIMEZONE:Asia/Ho_Chi_Minh}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${JPA_DDL_AUTO:update}
     show-sql: false
     properties:
       hibernate:
@@ -29,7 +29,14 @@ eureka:
 
 app:
   jwt:
-    signed-key: ${SIGNED_KEY:0e796109b182226d16e5ba239be1c9ce38c78d378444b4b8e2058e914ff887b8}
+    signed-key: ${SIGNED_KEY}
+    access-token-ttl-seconds: ${JWT_ACCESS_TOKEN_TTL_SECONDS:86400}
+    sliding-session-ttl-seconds: ${JWT_SLIDING_SESSION_TTL_SECONDS:86400}
+  seed-admin:
+    enabled: ${SEED_ADMIN_ENABLED:false}
+    email: ${SEED_ADMIN_EMAIL:}
+    password: ${SEED_ADMIN_PASSWORD:}
+    staff-id: ${SEED_ADMIN_STAFF_ID:SYS000001}
 
 management:
   endpoints:
@@ -39,4 +46,4 @@ management:
 
 logging:
   level:
-    com.attendance.auth: DEBUG
+    com.attendance.auth: ${AUTH_LOG_LEVEL:INFO}
