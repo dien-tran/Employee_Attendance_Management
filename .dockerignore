@@ -5,6 +5,9 @@ dist
 .vercel
 coverage
 .nyc_output
+.env
+.env.*
+!.env.example
 *.log
 *.tsbuildinfo
 *.lock

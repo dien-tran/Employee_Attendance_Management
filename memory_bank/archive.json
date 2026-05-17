@@ -60,11 +60,11 @@
       "new_files_added": [
         {
           "file": "auth-service/src/main/java/com/attendance/auth/config/DataInitializer.java",
-          "purpose": "ApplicationRunner tự động seed tài khoản ADMIN hệ thống khi khởi động (idempotent - chỉ tạo nếu chưa tồn tại). Tài khoản: email=admin@example.com, password=admin123, staffId=SYS000001, role=ADMIN."
+          "purpose": "ApplicationRunner tự động seed tài khoản ADMIN hệ thống khi khởi động (idempotent - chỉ tạo nếu chưa tồn tại). Tài khoản seed hiện đọc từ biến môi trường, không commit mật khẩu mặc định."
         }
       ],
       "test_results": {
-        "test_1_admin_login": "PASS - POST /api/auth/login với admin@example.com/admin123 → 200 OK, JWT token, role=ADMIN, staffId=SYS000001",
+        "test_1_admin_login": "PASS - POST /api/auth/login với tài khoản admin seed từ biến môi trường → 200 OK, JWT token, role=ADMIN, staffId=SYS000001",
         "test_2_create_staff_admin": "PASS - POST /api/staff với ROLE_ADMIN JWT → 201 Created, NV000001 Nguyen Thi Bich, NV000002 Le Van Duc",
         "test_3_create_staff_user_403": "PASS - POST /api/staff với ROLE_USER JWT → 403 Forbidden 'Access denied: ADMIN role required'",
         "test_4_no_token_401": "PASS - POST /api/staff không có token → 401 Unauthorized (Gateway chặn)",
@@ -150,7 +150,332 @@
       ],
       "run_command": "docker run --rm -v \"<abs_path>/auth-service:/app\" -w /app maven:3.9.6-eclipse-temurin-21 mvn test -Dtest=StaffIntegrationTest",
       "test_summary": "Tests run: 1, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS"
+    },
+    {
+      "id": "3.0",
+      "domain": "FRONTEND FOUNDATION",
+      "name": "Khởi tạo API Client & Zustand Store",
+      "status": "DONE",
+      "description": "Đã tạo lib/api-client.ts (Fetch-based), services/auth.service.ts, services/staff.service.ts, store/authStore.ts (Zustand). Đã cập nhật contexts/auth-context.tsx dùng Zustand + API service. Đã thêm axios + zustand vào package.json.",
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.1.1",
+      "domain": "UI/UX FEATURES SCOPE - Admin Portal",
+      "name": "Đăng nhập & Xác thực (Sử dụng HttpOnly Cookie)",
+      "status": "DONE",
+      "description": "Đã tích hợp API vào form đăng nhập Admin. Login form gọi useAuth().login() → authService.login() → apiClient. Toast notification và Redirect hoạt động. Đã cập nhật login-form.tsx dùng email thay vì username.",
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.1.2",
+      "domain": "UI/UX FEATURES SCOPE - Admin Portal",
+      "name": "Quản lý thông tin nhân viên (Hiển thị danh sách, CRUD cơ bản)",
+      "status": "DONE",
+      "description": "Đã tích hợp API vào bảng danh sách nhân viên. Thêm form tạo mới (Add Employee modal) với đầy đủ fields. Thêm chức năng thay đổi trạng thái (ACTIVE/INACTIVE) bằng nút Activate/Deactivate. Dùng staffService (getAll, create, updateStatus).",
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.2.1",
+      "domain": "UI/UX FEATURES SCOPE - User Portal",
+      "name": "Đăng nhập (Tài khoản = Email/Mã nhân viên)",
+      "status": "DONE",
+      "description": "Đã tích hợp luồng đăng nhập cho User. Login form dùng email + password, gọi authService.login(). Sau login thành công redirect về /user/home.",
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.2.2",
+      "domain": "UI/UX FEATURES SCOPE - User Portal",
+      "name": "Xem thông tin cá nhân (Profile)",
+      "status": "DONE",
+      "description": "Profile page đọc thông tin User (name, email, role, department) từ Zustand Store (useAuthStore) để hiển thị trên UI.",
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.2.3",
+      "domain": "UI/UX FEATURES SCOPE - User Portal",
+      "name": "Update thông tin cá nhân",
+      "status": "DONE",
+      "description": "Đã thêm Edit Profile modal với form chỉnh sửa name, department, phone. Dùng setUser() từ Zustand store để cập nhật state sau khi save.",
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.3",
+      "domain": "E2E TESTING",
+      "name": "Khởi tạo hạ tầng Playwright & Docker E2E Runner",
+      "status": "DONE",
+      "description": "1. Khởi tạo `playwright.config.ts` (baseURL, video, trace, screenshot). 2. Thêm service `e2e-runner` vào `docker-compose.yml` (dùng image mcr.microsoft.com/playwright). 3. Tạo thư mục `front-end/playwright/.auth/` để chứa state và add vào .gitignore. Đảm bảo tuân thủ `e2e_testing_rules.md` Mục 1 và 3.",
+      "rules_reference": [
+        "e2e_testing_rules.md#1",
+        "e2e_testing_rules.md#3"
+      ],
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.3.1",
+      "domain": "E2E TESTING",
+      "name": "Chuẩn bị UI - Gắn data-testid",
+      "status": "DONE",
+      "description": "Agent mở các file component UI (Login, Admin Employees, User Profile) và CHỈ thực hiện việc bổ sung các thuộc tính `data-testid` theo đúng định dạng `[component]-[action]-[entity]` quy định tại `e2e_testing_rules.md` Mục 2. KHÔNG thay đổi logic UI.",
+      "rules_reference": [
+        "e2e_testing_rules.md#2"
+      ],
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.4",
+      "domain": "E2E TESTING",
+      "name": "Thiết lập Global Auth State (Login 1 lần)",
+      "status": "DONE",
+      "description": "Viết file `front-end/tests/e2e/auth.setup.ts`. Cấu hình Playwright dependencies để chạy file này đầu tiên. Luồng: Truy cập form login, đăng nhập Admin -> Lưu state vào `playwright/.auth/admin.json`. Đăng nhập User -> Lưu state vào `playwright/.auth/user.json`. Chỉ lưu session, không assert phức tạp.",
+      "rules_reference": [
+        "e2e_testing_rules.md#6",
+        "e2e_testing_rules.md#7"
+      ],
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.5",
+      "domain": "E2E TESTING",
+      "name": "Viết kịch bản E2E - UI Validation & Luồng nghiệp vụ Admin",
+      "status": "DONE",
+      "description": "Đã viết `front-end/tests/e2e/admin-crud.spec.ts`. Bao gồm test UI validation form login, test Admin tạo nhân viên bằng `storageState` admin, đợi API Gateway trả 201, assert route/toast/DOM theo Verify 3 cấp độ, và dọn data E2E qua `test.afterAll` gọi `PATCH /api/staff/{id}/status?status=INACTIVE` để không xóa vật lý staff.",
+      "rules_reference": [
+        "e2e_testing_rules.md"
+      ],
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.6",
+      "domain": "E2E TESTING",
+      "name": "Viết kịch bản E2E - Quản lý hồ sơ cá nhân (User Profile)",
+      "status": "DONE",
+      "description": "Đã viết `front-end/tests/e2e/user-profile.spec.ts` dùng `storageState` User. Test truy cập profile, cập nhật name/department/phone, intercept `PUT /api/profile/me` trả 200, assert Network/URL/DOM/toast, và restore lại data gốc trong block `finally`. Đã thêm Profile API riêng (`GET/PUT /api/profile/me`) và cập nhật Profile page để gọi API thật qua `profileService`, không còn simulate API call.",
+      "rules_reference": [
+        "e2e_testing_rules.md"
+      ],
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.7",
+      "domain": "E2E TESTING",
+      "name": "Chạy Playwright Automation qua Docker E2E Runner và thu thập kết quả",
+      "status": "DONE",
+      "description": "Đã chạy Playwright automation qua Docker E2E Runner. Lần đầu fail do container auth-service đang dùng image cũ chưa có ProfileController nên `GET /api/profile/me` trả 404; đã rebuild auth-service/api-gateway/frontend và chạy lại `docker-compose run --rm e2e-runner` thành công. Kết quả cuối: 4/4 tests passed (setup auth, admin login validation, admin CRUD, user profile).",
+      "rules_reference": [
+        "e2e_testing_rules.md#1",
+        "e2e_testing_rules.md#3",
+        "e2e_testing_rules.md#5",
+        "e2e_testing_rules.md#6",
+        "e2e_testing_rules.md#7"
+      ],
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "4.1",
+      "domain": "DEVOPS & DEPLOYMENT PREPARATION",
+      "name": "Rà soát Hardcode và rò rỉ Environment Variables cho K8s",
+      "status": "DONE",
+      "description": "Đã rà soát frontend, các microservices backend, docker-compose và tài liệu memory/docs. Đã chuyển JWT signing key, DB credentials, seed admin credentials, Nginx upstream và E2E admin credentials sang biến môi trường; thêm `.env.example`, root `.gitignore`, cập nhật `.dockerignore`, và redact secret cũ trong tài liệu. Không phát hiện file `.env`/secret file đang được git track.",
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "2.3",
+      "domain": "ATTENDANCE & AI ANALYTICS (core-service)",
+      "name": "Cập nhật Database Schema: Thêm trường on_time cho bảng attendances",
+      "status": "DONE",
+      "description": "Đã thêm trường on_time (Boolean) vào entity Attendance để xác định trạng thái đúng giờ (TRUE/FALSE) và cập nhật tài liệu database_schema.",
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "2.4",
+      "domain": "ATTENDANCE & AI ANALYTICS (core-service)",
+      "name": "Thiết lập API M2M hứng dữ liệu điểm danh",
+      "status": "DONE",
+      "description": "Đã tạo DTO SyncAttendanceRequest và InternalAttendanceController (POST /api/internal/attendance/sync) tại core-service. Header X-Internal-Token nhận JWT nội bộ M2M được ký bằng INTERNAL_JWT_SIGNED_KEY riêng, verify HS512 + exp + issuer + audience + scope attendance:sync, sau đó lưu dữ liệu vào bảng attendances.",
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "2.5",
+      "domain": "API GATEWAY & SECURITY",
+      "name": "Cấu hình chặn truy cập external vào API nội bộ",
+      "status": "DONE",
+      "description": "Đã thêm InternalApiBlockFilter trong api-gateway để trả 403 Forbidden ngay từ WebFlux layer cho mọi external request với path /api/internal hoặc /api/internal/**, trước khi Gateway route/proxy request xuống service. Đã thêm unit test xác nhận chuỗi filter không chạy tiếp khi path nội bộ bị chặn.",
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "2.6",
+      "domain": "TESTING (core-service)",
+      "name": "Viết Integration Test luồng M2M",
+      "status": "DONE",
+      "description": "Đã thêm H2 test dependency và `core-service/src/test/resources/application-test.yml` để chạy @SpringBootTest độc lập MySQL/Eureka. Đã viết `InternalAttendanceIntegrationTest` dùng MockMvc giả lập AI service gửi `X-Internal-Token` hợp lệ và sai chữ ký; case hợp lệ trả 201 và lưu đúng attendances, case sai token trả 401 và không lưu DB. Đã xác minh bằng Docker Maven/JDK 21: `docker run --rm -v \"<abs_path>/core-service:/app\" -w /app maven:3.9.6-eclipse-temurin-21 mvn -q -Dtest=InternalAttendanceIntegrationTest test` PASS.",
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.8",
+      "domain": "E2E TESTING",
+      "name": "Viết kịch bản E2E - Giả lập AI Service chấm công và kiểm thử luồng UI",
+      "status": "DONE",
+      "description": "Đã viết `front-end/tests/e2e/attendance-ai-sync.spec.ts`. Test dùng Playwright APIRequestContext tạo HS512 internal JWT từ `INTERNAL_JWT_SIGNED_KEY`, gọi trực tiếp `POST /api/internal/attendance/sync` vào core-service để giả lập AI service, sau đó mở `/user/attendance` và `/admin/attendance` bằng storageState user/admin để assert bản ghi vừa sync render đúng thời gian, loại CHECK_IN và trạng thái onTime. Đã thêm cleanup qua `DELETE /api/internal/attendance/{id}` dùng cùng X-Internal-Token. Đồng thời tích hợp UI attendance thật qua `/api/core/attendance/my` và `/api/core/attendance/range`, sửa gateway inject `X-Staff-Id`, route core strip prefix đúng, và khai báo RouteLocator Java để gateway hoạt động ổn định với Spring Cloud Gateway 4.2. Kết quả Docker E2E cuối: 5/5 tests passed.",
+      "rules_reference": [
+        "e2e_testing_rules.md"
+      ],
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.9",
+      "domain": "TESTING (auth-service / api-gateway)",
+      "name": "Viết Integration Test luồng Refresh Token và Logout",
+      "status": "DONE",
+      "description": "Đã triển khai `POST /auth/refresh` cho auth-service, hỗ trợ lấy token từ body/cookie/header, rotate token mới và đưa token cũ vào bảng InvalidatedToken. Thời hạn access token và trần sliding session đã chuyển sang biến môi trường `JWT_ACCESS_TOKEN_TTL_SECONDS` và `JWT_SLIDING_SESSION_TTL_SECONDS`, token refresh kế thừa cùng session deadline để không kéo dài vô hạn. Đã viết `AuthTokenIntegrationTest` bằng @SpringBootTest + MockMvc kiểm tra login -> refresh -> introspect token cũ invalid -> logout -> introspect token mới invalid. Đã viết `JwtAuthenticationFilterTest` cho api-gateway để giả lập Auth Service trả introspect valid=false và xác nhận Gateway chặn request bằng 401, không gọi downstream chain. Đã xác minh qua Docker Maven/JDK 21: auth-service `AuthTokenIntegrationTest` PASS, api-gateway `JwtAuthenticationFilterTest` PASS.",
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.9.1",
+      "domain": "E2E TESTING",
+      "name": "E2E Epic - Refresh Access Token, Logout và Sliding Session TTL",
+      "status": "DONE",
+      "description": "Đã triển khai E2E cho workflow refresh/logout hiện tại qua Docker Compose/API Gateway. Thêm helper `tests/e2e/helpers/auth-token.ts`, các spec `auth-token-refresh.spec.ts`, `auth-token-security.spec.ts`, `auth-token-negative.spec.ts`, và `auth-token-ttl.spec.ts`. Full suite chạy bằng `docker compose run --rm e2e-runner` PASS: 29 passed, 1 skipped; skipped là TTL mode do `E2E_TTL_MODE=false` ở luồng bình thường.",
+      "children": [
+        "3.9.1.1",
+        "3.9.1.2",
+        "3.9.1.3",
+        "3.9.1.4",
+        "3.9.1.5"
+      ],
+      "rules_reference": [
+        "e2e_testing_rules.md"
+      ],
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.9.1.1",
+      "domain": "E2E TESTING",
+      "name": "Chuẩn bị E2E Helper cho Auth Token",
+      "status": "DONE",
+      "description": "Đã tạo `front-end/tests/e2e/helpers/auth-token.ts` để login Admin/User qua `/api/auth/login`, decode JWT payload (`jti`, `exp`, `sessionId`, `sessionStartedAt`, `sessionExpiresAt`), gọi `/api/auth/refresh`, `/api/auth/logout`, assert Set-Cookie, và gọi protected API qua Gateway (`/api/staff`, `/api/profile/me`). Helper đọc credential từ env E2E hiện có, không hardcode password/secret.",
+      "rules_reference": [
+        "e2e_testing_rules.md"
+      ],
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.9.1.2",
+      "domain": "E2E TESTING",
+      "name": "E2E Happy Path - Refresh Rotate Token và Giữ Quyền Truy Cập",
+      "status": "DONE",
+      "description": "Đã viết `auth-token-refresh.spec.ts` cho Admin và User: login lấy cookie/body token, refresh token hợp lệ, assert token/JTI mới khác token cũ, response có Set-Cookie mới, protected API đúng role vẫn trả 200, và JWT mới giữ nguyên `sessionId`, `sessionStartedAt`, `sessionExpiresAt`.",
+      "rules_reference": [
+        "e2e_testing_rules.md"
+      ],
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.9.1.3",
+      "domain": "E2E TESTING",
+      "name": "E2E Security - Blacklist Sau Refresh và Logout",
+      "status": "DONE",
+      "description": "Đã viết `auth-token-security.spec.ts` cho Admin và User: sau refresh token cũ bị Gateway chặn 401, token mới vẫn gọi protected API được; sau logout response xóa `access_token`, token mới bị blacklist và protected route UI redirect về login.",
+      "rules_reference": [
+        "e2e_testing_rules.md"
+      ],
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.9.1.4",
+      "domain": "E2E TESTING",
+      "name": "E2E Negative Cases - Refresh Token Thiếu, Sai, Đã Bị Vô Hiệu",
+      "status": "DONE",
+      "description": "Đã viết `auth-token-negative.spec.ts`: missing token/cookie, malformed token, token cũ đã bị invalid sau refresh, và token đã logout đều không được cấp token mới, không có Set-Cookie access_token hợp lệ, và protected API vẫn bị Gateway chặn.",
+      "rules_reference": [
+        "e2e_testing_rules.md"
+      ],
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.9.1.5",
+      "domain": "E2E TESTING",
+      "name": "E2E TTL - Access Token Expiry và Sliding Session Deadline",
+      "status": "DONE",
+      "description": "Đã viết `auth-token-ttl.spec.ts` với cổng bật `E2E_TTL_MODE=true` để chạy riêng TTL bằng cấu hình env ngắn trên `docker-compose.yml` hiện có. Spec kiểm tra access token hết hạn bị từ chối, refresh trước deadline không kéo dài `sessionExpiresAt`, `exp <= sessionExpiresAt`, và sau sliding deadline refresh bị từ chối. Trong full suite bình thường `E2E_TTL_MODE=false`, spec này được skip có chủ đích để không phá các E2E khác.",
+      "rules_reference": [
+        "e2e_testing_rules.md"
+      ],
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.10",
+      "domain": "E2E TESTING",
+      "name": "Viết kịch bản E2E - Kiểm tra dữ liệu danh sách (Data Duplication)",
+      "status": "DONE",
+      "description": "Đã viết `front-end/tests/e2e/data-duplication.spec.ts`. Test dùng `storageState` Admin/User, chờ `page.waitForResponse()` cho `/api/staff` và `/api/core/attendance/my`, sau đó đếm các component DOM qua `data-testid` (`staff-card-*`, `staff-row-*`, `attendance-row-*`) để đảm bảo số lượng render khớp API. Test cũng kích hoạt re-render qua đổi view/search ở `/admin/employees` và đổi filter ngày/tháng ở `/user/attendance`, đồng thời assert tập `data-testid` là duy nhất để bắt lỗi duplicate key/data append. Đã tạo bản ghi attendance E2E qua internal sync API và cleanup bằng internal delete sau test.",
+      "rules_reference": [
+        "e2e_testing_rules.md"
+      ],
+      "test_results": {
+        "docker_e2e": "PASS - docker compose up -d triggered e2e-runner; final run: 31 passed, 1 skipped (TTL mode skipped by default). New data-duplication tests: 2/2 passed."
+      },
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.11",
+      "domain": "E2E TESTING",
+      "name": "Viết kịch bản E2E - Phân quyền truy cập UI (RBAC)",
+      "status": "DONE",
+      "description": "Đã viết `rbac-guard.spec.ts` tái sử dụng storageState Admin/User và anonymous state. User truy cập trực tiếp `/admin/employees`, `/admin/attendance`, `/admin/dashboard` bị redirect về `/user/home`; Admin truy cập `/user/home`, `/user/profile`, `/user/attendance` bị redirect về `/admin/employees`; anonymous vào route protected bị redirect về login tương ứng. Đã assert không render sidebar/nội dung sai role.",
+      "rules_reference": [
+        "e2e_testing_rules.md"
+      ],
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.12",
+      "domain": "E2E TESTING",
+      "name": "Viết kịch bản E2E - Xác thực lỗi Form và Toast (Error Handling)",
+      "status": "DONE",
+      "description": "Đã viết `employee-form-errors.spec.ts` dùng storageState Admin, submit form thêm nhân viên với email không hợp lệ, bắt response lỗi từ `/api/staff`, assert UI giữ nguyên `/admin/employees`, modal vẫn mở, hiển thị `employee-error-msg`, và không có toast success.",
+      "rules_reference": [
+        "e2e_testing_rules.md"
+      ],
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.13",
+      "domain": "FRONTEND INTEGRATION",
+      "name": "Triển khai Guest Guard cho trang Login (Ngăn chặn Re-login)",
+      "status": "DONE",
+      "description": "Đã thêm GuestGuard/RootRedirect client-side dùng Zustand auth state. /admin/login, /login và /user/login tự redirect khi đã có session: Admin -> /admin/employees, User -> /user/home. Trang root (/) tự điều hướng theo role hoặc về /login khi chưa đăng nhập. /user/login được mở public khỏi User ProtectedRoute để tránh bị chặn trước form login; Admin đăng nhập ở form User vẫn được đá về trang Admin theo role.",
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.13.1",
+      "domain": "E2E TESTING",
+      "name": "Viết kịch bản E2E - Kiểm thử Guest Guard cho Login và Root Redirect",
+      "status": "DONE",
+      "description": "Đã viết `guest-guard.spec.ts` xác minh Admin/User đã login truy cập `/admin/login`, `/login`, `/user/login`, `/` thì không thấy login form và redirect đúng role. Đã kiểm tra cross-login Admin từ form User được đưa về portal Admin. Bổ sung `data-testid` cho auth redirect loading và sidebar để assert guard ổn định.",
+      "rules_reference": [
+        "e2e_testing_rules.md"
+      ],
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.14",
+      "domain": "FRONTEND INTEGRATION",
+      "name": "Triển khai Role-Based Access Control (RBAC) Guard cho Protected Routes",
+      "status": "DONE",
+      "description": "Đã refactor ProtectedRoute thành RoleGuard dùng chung, expose useRoleGuard, AdminGuard và UserGuard. Admin routes dùng AdminGuard, User routes dùng UserGuard; user sai role bị router.replace về home đúng role (USER -> /user/home, ADMIN -> /admin/employees), chưa đăng nhập bị đưa về login tương ứng. Guard hiển thị loading/redirect state và không render children khi đang hydrate hoặc sai quyền để tránh flash protected content.",
+      "completed_at": "2026-05-17"
+    },
+    {
+      "id": "3.14.1",
+      "domain": "E2E TESTING",
+      "name": "Viết kịch bản E2E - Kiểm thử RBAC Guard cho Protected Routes",
+      "status": "DONE",
+      "description": "Đã viết `rbac-guard.spec.ts` xác minh RBAC Guard task 3.14 cho User/Admin/anonymous. Test assert redirect đúng role, login đúng portal khi chưa đăng nhập, và không flash sidebar/nội dung protected sai role. Đã sửa locator heading để không match nhầm nội dung hợp lệ của trang đích.",
+      "rules_reference": [
+        "e2e_testing_rules.md"
+      ],
+      "completed_at": "2026-05-17"
     }
-    
   ]
 }

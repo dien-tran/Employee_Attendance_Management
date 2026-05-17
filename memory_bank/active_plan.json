@@ -10,27 +10,6 @@
   "current_phase": "Giai đoạn 3: Tích hợp Frontend & Backend (Next.js)",
   "tasks": [
     {
-      "id": "3.0",
-      "domain": "FRONTEND FOUNDATION",
-      "name": "Khởi tạo API Client & Zustand Store",
-      "status": "DONE",
-      "description": "Đã tạo lib/api-client.ts (Fetch-based), services/auth.service.ts, services/staff.service.ts, store/authStore.ts (Zustand). Đã cập nhật contexts/auth-context.tsx dùng Zustand + API service. Đã thêm axios + zustand vào package.json."
-    },
-    {
-      "id": "3.1.1",
-      "domain": "UI/UX FEATURES SCOPE - Admin Portal",
-      "name": "Đăng nhập & Xác thực (Sử dụng HttpOnly Cookie)",
-      "status": "DONE",
-      "description": "Đã tích hợp API vào form đăng nhập Admin. Login form gọi useAuth().login() → authService.login() → apiClient. Toast notification và Redirect hoạt động. Đã cập nhật login-form.tsx dùng email thay vì username."
-    },
-    {
-      "id": "3.1.2",
-      "domain": "UI/UX FEATURES SCOPE - Admin Portal",
-      "name": "Quản lý thông tin nhân viên (Hiển thị danh sách, CRUD cơ bản)",
-      "status": "DONE",
-      "description": "Đã tích hợp API vào bảng danh sách nhân viên. Thêm form tạo mới (Add Employee modal) với đầy đủ fields. Thêm chức năng thay đổi trạng thái (ACTIVE/INACTIVE) bằng nút Activate/Deactivate. Dùng staffService (getAll, create, updateStatus)."
-    },
-    {
       "id": "3.1.3",
       "domain": "UI/UX FEATURES SCOPE - Admin Portal",
       "name": "Giao diện Upload data khuôn mặt",
@@ -52,27 +31,6 @@
       "description": "Chờ API Chatbot từ Core Service."
     },
     {
-      "id": "3.2.1",
-      "domain": "UI/UX FEATURES SCOPE - User Portal",
-      "name": "Đăng nhập (Tài khoản = Email/Mã nhân viên)",
-      "status": "DONE",
-      "description": "Đã tích hợp luồng đăng nhập cho User. Login form dùng email + password, gọi authService.login(). Sau login thành công redirect về /user/home."
-    },
-    {
-      "id": "3.2.2",
-      "domain": "UI/UX FEATURES SCOPE - User Portal",
-      "name": "Xem thông tin cá nhân (Profile)",
-      "status": "DONE",
-      "description": "Profile page đọc thông tin User (name, email, role, department) từ Zustand Store (useAuthStore) để hiển thị trên UI."
-    },
-    {
-      "id": "3.2.3",
-      "domain": "UI/UX FEATURES SCOPE - User Portal",
-      "name": "Update thông tin cá nhân",
-      "status": "DONE",
-      "description": "Đã thêm Edit Profile modal với form chỉnh sửa name, department, phone. Dùng setUser() từ Zustand store để cập nhật state sau khi save."
-    },
-    {
       "id": "3.2.4",
       "domain": "UI/UX FEATURES SCOPE - User Portal",
       "name": "Dashboard cá nhân (Thống kê đi muộn, đúng giờ trong tháng)",
@@ -89,68 +47,7 @@
       "domain": "UI/UX FEATURES SCOPE - User Portal",
       "name": "AI Chatbot (Hỏi đáp cá nhân: Lương, giờ làm, ngày phép)",
       "status": "WAITING_FOR_API"
-    },
-    {
-      "id": "3.3",
-      "domain": "E2E TESTING",
-      "name": "Khởi tạo hạ tầng Playwright & Docker E2E Runner",
-      "status": "DONE",
-      "description": "1. Khởi tạo `playwright.config.ts` (baseURL, video, trace, screenshot). 2. Thêm service `e2e-runner` vào `docker-compose.yml` (dùng image mcr.microsoft.com/playwright). 3. Tạo thư mục `front-end/playwright/.auth/` để chứa state và add vào .gitignore. Đảm bảo tuân thủ `e2e_testing_rules.md` Mục 1 và 3.",
-      "rules_reference": [
-        "e2e_testing_rules.md#1",
-        "e2e_testing_rules.md#3"
-      ]
-    },
-    {
-      "id": "3.3.1",
-      "domain": "E2E TESTING",
-      "name": "Chuẩn bị UI - Gắn data-testid",
-      "status": "DONE",
-      "description": "Agent mở các file component UI (Login, Admin Employees, User Profile) và CHỈ thực hiện việc bổ sung các thuộc tính `data-testid` theo đúng định dạng `[component]-[action]-[entity]` quy định tại `e2e_testing_rules.md` Mục 2. KHÔNG thay đổi logic UI.",
-      "rules_reference": ["e2e_testing_rules.md#2"]
-    },
-    {
-      "id": "3.4",
-      "domain": "E2E TESTING",
-      "name": "Thiết lập Global Auth State (Login 1 lần)",
-      "status": "DONE",
-      "description": "Viết file `front-end/tests/e2e/auth.setup.ts`. Cấu hình Playwright dependencies để chạy file này đầu tiên. Luồng: Truy cập form login, đăng nhập Admin -> Lưu state vào `playwright/.auth/admin.json`. Đăng nhập User -> Lưu state vào `playwright/.auth/user.json`. Chỉ lưu session, không assert phức tạp.",
-      "rules_reference": [
-        "e2e_testing_rules.md#6",
-        "e2e_testing_rules.md#7"
-      ]
-    },
-    {
-      "id": "3.5",
-      "domain": "E2E TESTING",
-      "name": "Viết kịch bản E2E - UI Validation & Luồng nghiệp vụ Admin",
-      "status": "DONE",
-      "description": "Đã viết `front-end/tests/e2e/admin-crud.spec.ts`. Bao gồm test UI validation form login, test Admin tạo nhân viên bằng `storageState` admin, đợi API Gateway trả 201, assert route/toast/DOM theo Verify 3 cấp độ, và dọn data E2E qua `test.afterAll` gọi `PATCH /api/staff/{id}/status?status=INACTIVE` để không xóa vật lý staff.",
-      "rules_reference": ["e2e_testing_rules.md"]
-    },
-    {
-      "id": "3.6",
-      "domain": "E2E TESTING",
-      "name": "Viết kịch bản E2E - Quản lý hồ sơ cá nhân (User Profile)",
-      "status": "DONE",
-      "description": "Đã viết `front-end/tests/e2e/user-profile.spec.ts` dùng `storageState` User. Test truy cập profile, cập nhật name/department/phone, intercept `PUT /api/profile/me` trả 200, assert Network/URL/DOM/toast, và restore lại data gốc trong block `finally`. Đã thêm Profile API riêng (`GET/PUT /api/profile/me`) và cập nhật Profile page để gọi API thật qua `profileService`, không còn simulate API call.",
-      "rules_reference": ["e2e_testing_rules.md"]
-    },
-    {
-      "id": "3.7",
-      "domain": "E2E TESTING",
-      "name": "Chạy Playwright Automation qua Docker E2E Runner và thu thập kết quả",
-      "status": "DONE",
-      "description": "Đã chạy Playwright automation qua Docker E2E Runner. Lần đầu fail do container auth-service đang dùng image cũ chưa có ProfileController nên `GET /api/profile/me` trả 404; đã rebuild auth-service/api-gateway/frontend và chạy lại `docker-compose run --rm e2e-runner` thành công. Kết quả cuối: 4/4 tests passed (setup auth, admin login validation, admin CRUD, user profile).",
-      "rules_reference": [
-        "e2e_testing_rules.md#1",
-        "e2e_testing_rules.md#3",
-        "e2e_testing_rules.md#5",
-        "e2e_testing_rules.md#6",
-        "e2e_testing_rules.md#7"
-      ]
     }
-
   ],
   "external_dependencies_phase": {
     "phase_name": "Giai đoạn AI & Core Analytics (Team khác phụ trách)",
@@ -183,33 +80,121 @@
     "frontend_docker": {
       "status": "DONE",
       "description": "Đã tạo Dockerfile (multi-stage build: node build → nginx serve), nginx.conf (proxy /api/ → api-gateway:8080), và cập nhật docker-compose.yml với frontend service port 3000:80.",
-      "files": ["front-end/Dockerfile", "front-end/nginx.conf"]
+      "files": [
+        "front-end/Dockerfile",
+        "front-end/nginx.conf"
+      ]
     }
   },
   "database_schema": {
     "staffs": [
-      { "field": "id", "type": "UUID (PK)", "description": "Khóa chính nội bộ" },
-      { "field": "staff_id", "type": "VARCHAR", "description": "Mã nhân viên hệ thống cấp (VD: NV123456)" },
-      { "field": "name", "type": "VARCHAR", "description": "Họ và tên" },
-      { "field": "department", "type": "VARCHAR", "description": "Phòng ban (IT, HR, Sales...)" },
-      { "field": "position", "type": "VARCHAR", "description": "Vị trí công tác" },
-      { "field": "onboard_date", "type": "DATE", "description": "Ngày bắt đầu làm việc" },
-      { "field": "status", "type": "VARCHAR", "description": "Trạng thái (ACTIVE / INACTIVE)" },
-      { "field": "phone", "type": "VARCHAR", "description": "Số điện thoại" },
-      { "field": "email", "type": "VARCHAR", "description": "Email cá nhân/công ty (Dùng để đăng nhập)" },
-      { "field": "identity_card", "type": "VARCHAR", "description": "Căn cước công dân" },
-      { "field": "bank_account", "type": "VARCHAR", "description": "Số tài khoản ngân hàng" },
-      { "field": "bank_name", "type": "VARCHAR", "description": "Tên ngân hàng" },
-      { "field": "dob", "type": "DATE", "description": "Ngày sinh" },
-      { "field": "password", "type": "VARCHAR", "description": "Mật khẩu (Băm/Hashed)" },
-      { "field": "role", "type": "VARCHAR", "description": "Quyền (ADMIN / USER)" }
+      {
+        "field": "id",
+        "type": "UUID (PK)",
+        "description": "Khóa chính nội bộ"
+      },
+      {
+        "field": "staff_id",
+        "type": "VARCHAR",
+        "description": "Mã nhân viên hệ thống cấp (VD: NV123456)"
+      },
+      {
+        "field": "name",
+        "type": "VARCHAR",
+        "description": "Họ và tên"
+      },
+      {
+        "field": "department",
+        "type": "VARCHAR",
+        "description": "Phòng ban (IT, HR, Sales...)"
+      },
+      {
+        "field": "position",
+        "type": "VARCHAR",
+        "description": "Vị trí công tác"
+      },
+      {
+        "field": "onboard_date",
+        "type": "DATE",
+        "description": "Ngày bắt đầu làm việc"
+      },
+      {
+        "field": "status",
+        "type": "VARCHAR",
+        "description": "Trạng thái (ACTIVE / INACTIVE)"
+      },
+      {
+        "field": "phone",
+        "type": "VARCHAR",
+        "description": "Số điện thoại"
+      },
+      {
+        "field": "email",
+        "type": "VARCHAR",
+        "description": "Email cá nhân/công ty (Dùng để đăng nhập)"
+      },
+      {
+        "field": "identity_card",
+        "type": "VARCHAR",
+        "description": "Căn cước công dân"
+      },
+      {
+        "field": "bank_account",
+        "type": "VARCHAR",
+        "description": "Số tài khoản ngân hàng"
+      },
+      {
+        "field": "bank_name",
+        "type": "VARCHAR",
+        "description": "Tên ngân hàng"
+      },
+      {
+        "field": "dob",
+        "type": "DATE",
+        "description": "Ngày sinh"
+      },
+      {
+        "field": "password",
+        "type": "VARCHAR",
+        "description": "Mật khẩu (Băm/Hashed)"
+      },
+      {
+        "field": "role",
+        "type": "VARCHAR",
+        "description": "Quyền (ADMIN / USER)"
+      }
     ],
     "attendances": [
-      { "field": "id", "type": "UUID (PK)", "description": "Khóa chính" },
-      { "field": "staff_id", "type": "VARCHAR", "description": "Mã nhân viên (Mapping với bảng staffs)" },
-      { "field": "type", "type": "VARCHAR", "description": "Loại thao tác (CHECK_IN / CHECK_OUT)" },
-      { "field": "timestamp", "type": "DATETIME", "description": "Thời gian chấm công chính xác (VD: 08:15:00)" },
-      { "field": "date", "type": "DATE", "description": "Ngày chấm công (VD: 2026-05-12)" }
+      {
+        "field": "id",
+        "type": "UUID (PK)",
+        "description": "Khóa chính"
+      },
+      {
+        "field": "staff_id",
+        "type": "VARCHAR",
+        "description": "Mã nhân viên (Mapping với bảng staffs)"
+      },
+      {
+        "field": "type",
+        "type": "VARCHAR",
+        "description": "Loại thao tác (CHECK_IN / CHECK_OUT)"
+      },
+      {
+        "field": "timestamp",
+        "type": "DATETIME",
+        "description": "Thời gian chấm công chính xác (VD: 08:15:00)"
+      },
+      {
+        "field": "date",
+        "type": "DATE",
+        "description": "Ngày chấm công (VD: 2026-05-12)"
+      },
+      {
+        "field": "on_time",
+        "type": "BOOLEAN",
+        "description": "Trạng thái đi đúng giờ (TRUE: đúng giờ, FALSE: trễ giờ)"
+      }
     ]
   }
 }

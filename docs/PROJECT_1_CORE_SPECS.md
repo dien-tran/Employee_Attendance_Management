@@ -37,7 +37,7 @@
   - Tích hợp `JwtAuthenticationConverter` để tùy chỉnh prefix của Authorities (bỏ prefix default `SCOPE_`).
 
 ### JWT Encoding & Decoding (`AuthenticationServiceImpl.java` & `CustomJwtDecoder.java`)
-- **Secret Key:** `SIGNED_KEY = "0e796109b182226d16e5ba239be1c9ce38c78d378444b4b8e2058e914ff887b8"` (Đang hardcode cứng).
+- **Secret Key:** đọc từ biến môi trường `SIGNED_KEY`; không commit giá trị thật vào source/docs.
 - **Thuật toán chữ ký:** HMAC bằng thuật toán thư viện `nimbusds` (`MacAlgorithm.HS512`).
 - **Payload (`JWTClaimsSet`):** 
   - `subject`: user email

@@ -1,5 +1,3 @@
-version: '3.8'
-
 networks:
   attendance-network:
     driver: bridge
@@ -19,16 +17,18 @@ services:
     image: mysql:8.0
     container_name: mysql-auth
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: auth_db
+      MYSQL_ROOT_PASSWORD: ${AUTH_DB_ROOT_PASSWORD:?Set AUTH_DB_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${AUTH_DB_NAME:-auth_db}
+      MYSQL_USER: ${AUTH_DB_USERNAME:?Set AUTH_DB_USERNAME in .env}
+      MYSQL_PASSWORD: ${AUTH_DB_PASSWORD:?Set AUTH_DB_PASSWORD in .env}
     ports:
-      - "3307:3306"
+      - "${AUTH_DB_HOST_PORT:-3307}:3306"
     volumes:
       - mysql-auth-data:/var/lib/mysql
     networks:
       - attendance-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u \"$${MYSQL_USER}\" -p\"$${MYSQL_PASSWORD}\""]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -37,16 +37,18 @@ services:
     image: mysql:8.0
     container_name: mysql-core
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: core_db
+      MYSQL_ROOT_PASSWORD: ${CORE_DB_ROOT_PASSWORD:?Set CORE_DB_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${CORE_DB_NAME:-core_db}
+      MYSQL_USER: ${CORE_DB_USERNAME:?Set CORE_DB_USERNAME in .env}
+      MYSQL_PASSWORD: ${CORE_DB_PASSWORD:?Set CORE_DB_PASSWORD in .env}
     ports:
-      - "3308:3306"
+      - "${CORE_DB_HOST_PORT:-3308}:3306"
     volumes:
       - mysql-core-data:/var/lib/mysql
     networks:
       - attendance-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u \"$${MYSQL_USER}\" -p\"$${MYSQL_PASSWORD}\""]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -61,7 +63,7 @@ services:
       dockerfile: Dockerfile
     container_name: eureka-service
     ports:
-      - "8761:8761"
+      - "${EUREKA_HOST_PORT:-8761}:8761"
     networks:
       - attendance-network
     healthcheck:
@@ -76,11 +78,12 @@ services:
       dockerfile: Dockerfile
     container_name: api-gateway
     ports:
-      - "8080:8080"
+      - "${API_GATEWAY_HOST_PORT:-8080}:8080"
     environment:
-      EUREKA_URL: http://eureka-service:8761/eureka/
-      SIGNED_KEY: 0e796109b182226d16e5ba239be1c9ce38c78d378444b4b8e2058e914ff887b8
-      AUTH_INTROSPECT_URL: http://auth-service:8081/auth/introspect
+      EUREKA_URL: ${EUREKA_URL:-http://eureka-service:8761/eureka/}
+      SIGNED_KEY: ${SIGNED_KEY:?Set SIGNED_KEY in .env}
+      AUTH_INTROSPECT_URL: ${AUTH_INTROSPECT_URL:-http://auth-service:8081/auth/introspect}
+      GATEWAY_LOG_LEVEL: ${GATEWAY_LOG_LEVEL:-INFO}
     depends_on:
       eureka-service:
         condition: service_healthy
@@ -97,14 +100,24 @@ services:
       dockerfile: Dockerfile
     container_name: auth-service
     ports:
-      - "8081:8081"
+      - "${AUTH_SERVICE_HOST_PORT:-8081}:8081"
     environment:
       DB_HOST: mysql-auth
       DB_PORT: 3306
-      DB_USERNAME: root
-      DB_PASSWORD: root
-      EUREKA_URL: http://eureka-service:8761/eureka/
-      SIGNED_KEY: 0e796109b182226d16e5ba239be1c9ce38c78d378444b4b8e2058e914ff887b8
+      DB_NAME: ${AUTH_DB_NAME:-auth_db}
+      DB_USERNAME: ${AUTH_DB_USERNAME:?Set AUTH_DB_USERNAME in .env}
+      DB_PASSWORD: ${AUTH_DB_PASSWORD:?Set AUTH_DB_PASSWORD in .env}
+      DB_TIMEZONE: ${DB_TIMEZONE:-Asia/Ho_Chi_Minh}
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+      EUREKA_URL: ${EUREKA_URL:-http://eureka-service:8761/eureka/}
+      SIGNED_KEY: ${SIGNED_KEY:?Set SIGNED_KEY in .env}
+      JWT_ACCESS_TOKEN_TTL_SECONDS: ${JWT_ACCESS_TOKEN_TTL_SECONDS:-86400}
+      JWT_SLIDING_SESSION_TTL_SECONDS: ${JWT_SLIDING_SESSION_TTL_SECONDS:-86400}
+      SEED_ADMIN_ENABLED: ${SEED_ADMIN_ENABLED:-true}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:?Set SEED_ADMIN_EMAIL in .env}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?Set SEED_ADMIN_PASSWORD in .env}
+      SEED_ADMIN_STAFF_ID: ${SEED_ADMIN_STAFF_ID:-SYS000001}
+      AUTH_LOG_LEVEL: ${AUTH_LOG_LEVEL:-INFO}
     depends_on:
       mysql-auth:
         condition: service_healthy
@@ -119,14 +132,22 @@ services:
       dockerfile: Dockerfile
     container_name: core-service
     ports:
-      - "8082:8082"
+      - "${CORE_SERVICE_HOST_PORT:-8082}:8082"
     environment:
       DB_HOST: mysql-core
       DB_PORT: 3306
-      DB_USERNAME: root
-      DB_PASSWORD: root
-      EUREKA_URL: http://eureka-service:8761/eureka/
-      # KHÔNG có SIGNED_KEY - Core Service không xử lý JWT
+      DB_NAME: ${CORE_DB_NAME:-core_db}
+      DB_USERNAME: ${CORE_DB_USERNAME:?Set CORE_DB_USERNAME in .env}
+      DB_PASSWORD: ${CORE_DB_PASSWORD:?Set CORE_DB_PASSWORD in .env}
+      DB_TIMEZONE: ${DB_TIMEZONE:-Asia/Ho_Chi_Minh}
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+      INTERNAL_JWT_SIGNED_KEY: ${INTERNAL_JWT_SIGNED_KEY:?Set INTERNAL_JWT_SIGNED_KEY in .env}
+      INTERNAL_JWT_ISSUER: ${INTERNAL_JWT_ISSUER:-ai-service}
+      INTERNAL_JWT_AUDIENCE: ${INTERNAL_JWT_AUDIENCE:-core-service}
+      INTERNAL_JWT_REQUIRED_SCOPE: ${INTERNAL_JWT_REQUIRED_SCOPE:-attendance:sync}
+      EUREKA_URL: ${EUREKA_URL:-http://eureka-service:8761/eureka/}
+      # No user login SIGNED_KEY here; core-service only verifies internal M2M JWT.
+      CORE_LOG_LEVEL: ${CORE_LOG_LEVEL:-INFO}
     depends_on:
       mysql-core:
         condition: service_healthy
@@ -145,7 +166,10 @@ services:
       dockerfile: Dockerfile
     container_name: frontend
     ports:
-      - "3000:80"
+      - "${FRONTEND_HOST_PORT:-3000}:80"
+    environment:
+      API_GATEWAY_URL: ${FRONTEND_API_GATEWAY_URL:-http://api-gateway:8080}
+      NGINX_SERVER_NAME: ${FRONTEND_SERVER_NAME:-_}
     depends_on:
       api-gateway:
         condition: service_started
@@ -166,7 +190,20 @@ services:
     working_dir: /app
     environment:
       CI: "true"
-      PLAYWRIGHT_BASE_URL: http://frontend
+      PLAYWRIGHT_BASE_URL: ${PLAYWRIGHT_BASE_URL:-http://frontend}
+      E2E_ADMIN_EMAIL: ${E2E_ADMIN_EMAIL:?Set E2E_ADMIN_EMAIL in .env}
+      E2E_ADMIN_PASSWORD: ${E2E_ADMIN_PASSWORD:?Set E2E_ADMIN_PASSWORD in .env}
+      E2E_USER_EMAIL: ${E2E_USER_EMAIL:-e2e_test_user@example.com}
+      E2E_USER_DOB: ${E2E_USER_DOB:-1998-03-20}
+      E2E_USER_PASSWORD: ${E2E_USER_PASSWORD:?Set E2E_USER_PASSWORD in .env}
+      E2E_TTL_MODE: ${E2E_TTL_MODE:-false}
+      E2E_SHORT_ACCESS_TTL_SECONDS: ${E2E_SHORT_ACCESS_TTL_SECONDS:-3}
+      E2E_SHORT_SLIDING_SESSION_TTL_SECONDS: ${E2E_SHORT_SLIDING_SESSION_TTL_SECONDS:-9}
+      E2E_CORE_INTERNAL_BASE_URL: ${E2E_CORE_INTERNAL_BASE_URL:-http://core-service:8082}
+      INTERNAL_JWT_SIGNED_KEY: ${INTERNAL_JWT_SIGNED_KEY:?Set INTERNAL_JWT_SIGNED_KEY in .env}
+      INTERNAL_JWT_ISSUER: ${INTERNAL_JWT_ISSUER:-ai-service}
+      INTERNAL_JWT_AUDIENCE: ${INTERNAL_JWT_AUDIENCE:-core-service}
+      INTERNAL_JWT_REQUIRED_SCOPE: ${INTERNAL_JWT_REQUIRED_SCOPE:-attendance:sync}
     volumes:
       - ./front-end:/app
       - e2e-node-modules:/app/node_modules

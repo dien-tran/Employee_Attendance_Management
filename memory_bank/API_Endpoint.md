@@ -12,10 +12,11 @@
 | `auth-service-public` | `/api/auth/**` | `lb://auth-service` | Yes (1) | `/api/auth/login` → `/auth/login` trên auth-service |
 | `auth-service-staff` | `/api/staff/**` | `lb://auth-service` | No | `/api/staff` → `/api/staff` trên auth-service (port 8081) |
 | `auth-service-profile` | `/api/profile/**` | `lb://auth-service` | No | `/api/profile/me` → `/api/profile/me` trên auth-service (port 8081) |
-| `core-service` | `/api/core/**` | `lb://core-service` | Yes (1) | `/api/core/...` → `/core/...` trên core-service (port 8082) |
+| `core-service` | `/api/core/**` | `lb://core-service` | Yes (2) | `/api/core/attendance/...` → `/attendance/...` trên core-service (port 8082) |
 
 > ⚠️ **Lưu ý quan trọng:** Route `/api/staff/**` KHÔNG strip prefix vì `StaffController` mapping là `/api/staff`.
 > Route `/api/auth/**` strip 1 prefix vì `AuthController` mapping là `/auth/login`, `/auth/introspect`, v.v.
+> API nội bộ `/api/internal/**` của `core-service` KHÔNG dành cho external client qua Gateway. Luồng AI service → core-service gọi trực tiếp trong Docker network.
 
 ---
 
@@ -203,7 +204,118 @@
 
 ---
 
-## 4. Tài khoản hệ thống mặc định (DataInitializer)
+## 4. Attendance Controller (`/attendance`) — core-service port 8082
+
+> Gọi qua Gateway: `GET http://localhost:8080/api/core/attendance/my`
+> **Yêu cầu:** JWT hợp lệ. API Gateway inject `X-Staff-Id`, `X-User-Id`, `X-User-Roles`.
+
+| Method | Gateway Path | Upstream Path | Request Body | Phân quyền | Mô tả |
+|--------|-------------|--------------|--------------|------------|-------|
+| POST | `/api/core/attendance/check-in?type=CHECK_IN` | `/attendance/check-in` | - | Authenticated | Chấm công thủ công cho staff hiện tại từ `X-Staff-Id`. |
+| GET | `/api/core/attendance/my?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD` | `/attendance/my` | - | Authenticated | Lấy lịch sử chấm công của chính user hiện tại. |
+| GET | `/api/core/attendance/today` | `/attendance/today` | - | `ROLE_ADMIN` | Lấy tất cả bản ghi chấm công hôm nay. |
+| GET | `/api/core/attendance/range?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD` | `/attendance/range` | - | `ROLE_ADMIN` | Lấy bản ghi chấm công theo khoảng ngày. |
+| GET | `/api/core/attendance/staff/{staffId}/today` | `/attendance/staff/{staffId}/today` | - | `ROLE_ADMIN` | Lấy bản ghi chấm công hôm nay của một nhân viên. |
+
+### Attendance Response Example
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "result": [
+    {
+      "id": "uuid",
+      "staffId": "NV000001",
+      "type": "CHECK_IN",
+      "timestamp": "2026-05-16T08:02:15",
+      "date": "2026-05-16",
+      "onTime": true
+    }
+  ]
+}
+```
+
+## 5. Internal Attendance M2M API (`/api/internal/attendance`) — core-service port 8082
+
+> Gọi nội bộ trong Docker network: `POST http://core-service:8082/api/internal/attendance/sync`
+> **Không gọi qua API Gateway/browser.**
+> **Auth Header:** `X-Internal-Token: Bearer <INTERNAL_M2M_JWT>`
+
+| Method | Internal Path | Request Body | Phân quyền | Mô tả |
+|--------|---------------|--------------|------------|-------|
+| POST | `/api/internal/attendance/sync` | `SyncAttendanceRequest` | Internal M2M JWT | AI service đồng bộ bản ghi điểm danh sau khi nhận diện khuôn mặt thành công. |
+| DELETE | `/api/internal/attendance/{id}` | - | Internal M2M JWT | Dọn bản ghi nội bộ theo id, dùng cho cleanup dữ liệu E2E/đồng bộ lỗi. |
+
+### Internal M2M JWT
+
+JWT nội bộ này **khác** JWT login user/admin.
+
+| Field | Value |
+|-------|-------|
+| Algorithm | `HS512` |
+| Signed key | `INTERNAL_JWT_SIGNED_KEY` |
+| Header nhận token | `X-Internal-Token` |
+| Issuer mặc định | `ai-service` |
+| Audience mặc định | `core-service` |
+| Scope bắt buộc | `attendance:sync` |
+
+### Internal JWT Claims Example
+```json
+{
+  "iss": "ai-service",
+  "aud": "core-service",
+  "scope": "attendance:sync",
+  "iat": 1778680131,
+  "exp": 1778681031,
+  "jti": "b6d75e0e-5075-4c50-a6c8-56bbf72d8f74"
+}
+```
+
+### SyncAttendanceRequest
+```json
+{
+  "staffId": "NV000001",
+  "type": "CHECK_IN",
+  "timestamp": "2026-05-16T08:02:15",
+  "date": "2026-05-16",
+  "onTime": true
+}
+```
+
+| Field | Type | Required | Ghi chú |
+|-------|------|----------|---------|
+| `staffId` | string | Yes | Mã nhân viên mapping với bảng staffs. |
+| `type` | string | Yes | `CHECK_IN` hoặc `CHECK_OUT`. |
+| `timestamp` | datetime | Yes | Thời điểm chấm công chính xác, ISO-8601 local datetime. |
+| `date` | date | No | Nếu không truyền, core-service tự lấy từ `timestamp`. |
+| `onTime` | boolean | Yes | `true` nếu đúng giờ, `false` nếu trễ. |
+
+### Success Response (201 Created)
+```json
+{
+  "code": 201,
+  "message": "Attendance synced successfully",
+  "result": {
+    "id": "uuid",
+    "staffId": "NV000001",
+    "type": "CHECK_IN",
+    "timestamp": "2026-05-16T08:02:15",
+    "date": "2026-05-16",
+    "onTime": true
+  }
+}
+```
+
+### Error Responses
+| HTTP Status | Khi nào | Response |
+|-------------|---------|----------|
+| 400 | Body thiếu field bắt buộc hoặc `type` không phải `CHECK_IN`/`CHECK_OUT` | Spring validation error |
+| 401 | Thiếu/sai `X-Internal-Token`, JWT sai chữ ký, hết hạn, sai issuer/audience/scope | `{"code":401,"message":"Invalid internal JWT"}` |
+| 503 | `INTERNAL_JWT_SIGNED_KEY` chưa được cấu hình ở core-service | `{"code":503,"message":"Internal attendance sync is not configured"}` |
+
+---
+
+## 6. Tài khoản hệ thống mặc định (DataInitializer)
 
 > File: `auth-service/src/main/java/com/attendance/auth/config/DataInitializer.java`
 > Tự động tạo khi auth-service khởi động lần đầu (idempotent).
@@ -211,7 +323,7 @@
 | Field | Value |
 |-------|-------|
 | Email | `admin@example.com` |
-| Password | `admin123` |
+| Password | Đọc từ biến môi trường `SEED_ADMIN_PASSWORD` |
 | StaffId | `SYS000001` |
 | Role | `ADMIN` |
 | Name | `System Administrator` |
@@ -219,10 +331,10 @@
 
 ---
 
-## 5. JWT Token Structure
+## 7. User/Admin JWT Token Structure
 
 **Algorithm:** HS512 (Nimbus JOSE JWT)
-**Signed Key:** `0e796109b182226d16e5ba239be1c9ce38c78d378444b4b8e2058e914ff887b8`
+**Signed Key:** Đọc từ biến môi trường `SIGNED_KEY` (không commit giá trị thật)
 
 ### JWT Claims
 ```json
@@ -242,14 +354,15 @@
 | Header | Giá trị | Ví dụ |
 |--------|---------|-------|
 | `X-User-Id` | UUID của user | `ba09ad68-ab9e-4c38-a0c1-5ea2a93260d8` |
+| `X-Staff-Id` | Mã nhân viên từ JWT claim `staffId` | `NV000001` |
 | `X-User-Roles` | Scope từ JWT | `ROLE_ADMIN` hoặc `ROLE_USER` |
 
 ---
 
-## 6. Password Convention
+## 8. Password Convention
 
 | Loại tài khoản | Password mặc định | Ví dụ |
 |---------------|------------------|-------|
-| Admin hệ thống (SYS000001) | `admin123` | - |
+| Admin hệ thống (SYS000001) | `SEED_ADMIN_PASSWORD` | cấu hình qua env |
 | Nhân viên mới | Ngày sinh format `ddMMyyyy` | dob=1998-03-20 → password=`20031998` |
 | Nhân viên mới | Ngày sinh format `ddMMyyyy` | dob=2000-07-04 → password=`04072000` |

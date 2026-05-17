@@ -34,7 +34,7 @@
 - **Lưu ý:** Dùng `condition: service_healthy` thay vì chỉ `depends_on` để đảm bảo MySQL và Eureka thực sự sẵn sàng trước khi service khởi động.
 
 ### 🔑 Cấu hình quan trọng
-- **SIGNED_KEY:** `0e796109b182226d16e5ba239be1c9ce38c78d378444b4b8e2058e914ff887b8` (chia sẻ giữa api-gateway và auth-service)
+- **SIGNED_KEY:** cấu hình qua biến môi trường, chia sẻ giữa api-gateway và auth-service; không commit giá trị thật.
 - **JWT Algorithm:** HS512 (Nimbus JOSE JWT)
 - **Token location:** HttpOnly Cookie `access_token` (ưu tiên) hoặc `Authorization: Bearer` header (fallback)
 - **Token duration:** 86400 seconds (24 giờ)
@@ -90,7 +90,7 @@
 - **Mục đích:** Tự động seed tài khoản ADMIN hệ thống khi auth-service khởi động.
 - **Pattern:** Implements `ApplicationRunner`, chạy sau khi Spring context load xong.
 - **Idempotent:** Kiểm tra `existsByEmail()` trước khi tạo → an toàn khi restart nhiều lần.
-- **Tài khoản seed:** `admin@example.com` / `admin123` / role=ADMIN / staffId=SYS000001
+- **Tài khoản seed:** cấu hình qua `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_ADMIN_STAFF_ID`; không hardcode mật khẩu.
 - **Bài học:** Luôn dùng pattern này thay vì seed thủ công qua SQL/curl để đảm bảo môi trường dev/test luôn có dữ liệu khởi đầu nhất quán.
 
 ### 📝 Bài học kỹ thuật bổ sung
@@ -111,7 +111,7 @@
 - **Production note:** Không xóa table này trong production. Chỉ dùng khi debug.
 
 ### 🔑 Cấu hình bổ sung
-- **Admin mặc định:** `admin@example.com` / `admin123` (tạo bởi DataInitializer)
+- **Admin mặc định:** do `DataInitializer` tạo khi `SEED_ADMIN_ENABLED=true`, thông tin đọc từ biến môi trường.
 - **Password convention nhân viên:** `ddMMyyyy` từ ngày sinh (VD: dob=1998-03-20 → password=`20031998`)
 - **StaffId format:** `NV` + 6 chữ số tự tăng (VD: NV000001, NV000002)
 - **Admin system StaffId:** `SYS000001` (prefix SYS để phân biệt với nhân viên thường)
@@ -401,3 +401,52 @@
 - **Nguyen nhan:** Toi uu cho teardown E2E qua nhanh ma bo qua quy tac nghiep vu: staff khong duoc xoa vat ly.
 - **Fix:** Go endpoint hard-delete staff khoi backend/docs. E2E cleanup chuyen sang `PATCH /api/staff/{id}/status?status=INACTIVE`.
 - **Bai hoc:** E2E teardown khong duoc them API trai nghiep vu chi de lam sach DB. Neu domain da co soft-disable/status, automation phai dung dung co che do.
+
+#### 35. Spring Cloud Gateway 4.2 route config can fail silently if bound under the wrong prefix
+- **Van de:** E2E setup login doi `/api/auth/login` tra 200 nhung gateway tra 404, trong khi auth-service goi truc tiep `/auth/login` van OK.
+- **Nguyen nhan:** Route YAML nam duoi prefix cu `spring.cloud.gateway.routes`; voi Spring Cloud Gateway 4.2, config properties chinh thuc nam duoi `spring.cloud.gateway.server.webflux.routes`. Khi route khong bind, gateway khong proxy request nao.
+- **Fix:** Khai bao `RouteLocator` bang Java bean trong `ApiGatewayApplication` cho cac route `/api/auth/**`, `/api/staff/**`, `/api/profile/**`, `/api/core/**`; giu YAML gon cho config he thong.
+- **Bai hoc:** Khi gateway tra 404 cho moi route, test truc tiep downstream service de tach loi. Neu binding YAML mo ho, RouteLocator Java la cach ro rang va de compile-check hon cho route cot loi.
+
+---
+
+## Phien 7 - 2026-05-17: E2E Refresh/Logout, Guest Guard, RBAC Guard va Error Handling
+
+### Da hoan thanh
+- Task 3.9.1: E2E refresh access token, logout, blacklist, negative cases va TTL spec co cong tac rieng.
+- Task 3.11 / 3.14.1: E2E RBAC guard cho protected routes.
+- Task 3.12: E2E form error handling cho Add Employee.
+- Task 3.13.1: E2E GuestGuard va RootRedirect.
+- Chay lai bang Docker Compose runner: `docker compose run --rm e2e-runner`.
+- Ket qua: **29 passed, 1 skipped**. Test skipped la `auth-token-ttl.spec.ts` vi `E2E_TTL_MODE=false` trong full suite binh thuong.
+
+### Loi / lech huong da gap va fix
+
+#### 36. Khong tao compose override neu docker-compose.yml hien co da du de chay E2E
+- **Van de:** Ban dau tao them `docker-compose.e2e-ttl.yml` cho TTL mode.
+- **Nguyen nhan:** Doc task TTL theo huong "compose override" qua sat, trong khi project da co `docker-compose.yml` chua day du runner va user yeu cau dung compose hien co.
+- **Fix:** Xoa compose override, dua cac bien `E2E_TTL_MODE`, `E2E_SHORT_ACCESS_TTL_SECONDS`, `E2E_SHORT_SLIDING_SESSION_TTL_SECONDS` vao service `e2e-runner` cua `docker-compose.yml`.
+- **Bai hoc:** Neu project da co compose chuan cho E2E, uu tien mo rong bang env co san thay vi tao file compose moi. Chi tao override khi user dong y hoac workflow bat buoc.
+
+#### 37. E2E phai chay trong Docker Compose, khong chay npm/npx local
+- **Van de:** Build/test local tren Windows bi chan boi execution policy va dependency local khong day du.
+- **Nguyen nhan:** Thu verify nhanh bang local command thay vi bam sat `e2e_testing_rules.md`.
+- **Fix:** Chuyen sang dung `docker compose down`, `docker compose up --build -d`, va `docker compose run --rm e2e-runner`.
+- **Bai hoc:** Voi repo nay, E2E va frontend build phai duoc verify qua Docker Compose. Local `npm`, `npx`, `next build` khong phai duong verify chinh.
+
+#### 38. Guard redirect lam route sau login khac voi expectation cu
+- **Van de:** `auth.setup.ts` va `guest-guard.spec.ts` ky vong Admin login ve `/admin/dashboard`, nhung GuestGuard/RootRedirect hien dua Admin da login ve `/admin/employees`.
+- **Nguyen nhan:** Test assertion cu khong duoc cap nhat sau task 3.13/3.14.
+- **Fix:** Cho phep route Admin hop le la `/admin/dashboard` hoac `/admin/employees` o nhung test login/cross-login lien quan.
+- **Bai hoc:** Khi them guard redirect theo role, E2E setup va cac assertion cross-login phai dong bo voi home route thuc te cua guard, khong chi voi redirect ban dau trong login function.
+
+#### 39. Locator heading qua rong co the match nham noi dung trang dich
+- **Van de:** RBAC test user vao `/admin/dashboard` bi flaky/fail vi locator `/Employees|Admin Dashboard|Attendance/i` match nham heading `Recent Attendance` tren `/user/home`.
+- **Nguyen nhan:** Regex heading qua rong va khong neo dau/cuoi.
+- **Fix:** Doi sang regex neo chinh xac `^(Employees|Admin Dashboard|Attendance)$` cho admin content va pattern rieng cho user content.
+- **Bai hoc:** Khi assert "khong flash protected content", locator phai nham dung noi dung protected cua route nguon, tranh match cac heading hop le cua route dich sau redirect.
+
+#### 40. TTL E2E can co cong tac rieng de khong pha full suite
+- **Van de:** TTL ngan lam session/cookie het han nhanh, co the lam cac spec khac fail neu chay chung.
+- **Fix:** `auth-token-ttl.spec.ts` duoc gate bang `E2E_TTL_MODE=true`; `playwright.config.ts` chi chay TTL spec khi mode nay bat. Full suite binh thuong skip TTL spec co chu dich.
+- **Bai hoc:** Cac E2E doi hoi cau hinh thoi gian dac biet nen tach mode chay rieng. Ket qua full suite can ghi ro skip co chu dich thay vi coi la chua chay.
