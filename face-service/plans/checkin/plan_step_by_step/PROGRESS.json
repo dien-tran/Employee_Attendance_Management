@@ -1,0 +1,498 @@
+{
+  "title": "Check-in Implementation Progress",
+  "description": "Theo doi tien do trien khai Face Check-in / Check-out theo tung plan nho.",
+  "result_report_rule": {
+    "enabled": true,
+    "directory": "plans/checkin/result",
+    "filename_pattern": "step_XX_<short_name>_result.md",
+    "required_after_each_completed_step": true
+  },
+  "status_legend": {
+    "DONE": "Da code xong trong repo va da ra theo tieu chi nghiem thu cua step.",
+    "PENDING": "Chua code.",
+    "BLOCKED": "Dang bi chan boi quyet dinh hoac dependency."
+  },
+  "steps": [
+    {
+      "step": "00",
+      "plan_file": "00_working_rules.md",
+      "status": "DONE",
+      "output": "Quy tac lam viec va comment/docstring",
+      "notes": "Da ap dung lam chuan cho cac step sau."
+    },
+    {
+      "step": "01",
+      "plan_file": "01_sql_schema.md",
+      "status": "DONE",
+      "output": "sql/01_create_attendance_tables.sql",
+      "notes": "Da tao schema staffs day du va attendances; chua chay SQL vi chua co MySQL client trong PATH.",
+      "result_report": "plans/checkin/result/step_01_sql_schema_result.md"
+    },
+    {
+      "step": "02",
+      "plan_file": "02_docker_init_sql.md",
+      "status": "DONE",
+      "output": "Cap nhat docker-compose.yml",
+      "notes": "Da mount ./sql vao /docker-entrypoint-initdb.d:ro cho MySQL; docker compose config pass voi warning quyen doc Docker config.",
+      "result_report": "plans/checkin/result/step_02_docker_init_sql_result.md"
+    },
+    {
+      "step": "03",
+      "plan_file": "03_config_checkin_attendance.md",
+      "status": "DONE",
+      "output": "Cap nhat config/config.yaml",
+      "notes": "Da them checkin, attendance, mysql pool options va env overrides trong app/core/config.py.",
+      "result_report": "plans/checkin/result/step_03_config_checkin_attendance_result.md"
+    },
+    {
+      "step": "04",
+      "plan_file": "04_python_dependencies.md",
+      "status": "DONE",
+      "output": "Cap nhat requirements CPU/GPU",
+      "notes": "Da them aiomysql==0.2.* vao requirements CPU/GPU; pymysql da co san; khong them bcrypt/dateutil.",
+      "result_report": "plans/checkin/result/step_04_python_dependencies_result.md"
+    },
+    {
+      "step": "05",
+      "plan_file": "05_mysql_service.md",
+      "status": "DONE",
+      "output": "app/services/mysql_db.py",
+      "notes": "Da tao async MySQL service voi connection pool, typed records, duplicate attendance mapping va parameterized queries.",
+      "result_report": "plans/checkin/result/step_05_mysql_service_result.md"
+    },
+    {
+      "step": "06",
+      "plan_file": "06_attendance_service.md",
+      "status": "DONE",
+      "output": "app/services/attendance.py",
+      "notes": "Da tao attendance business service de tinh timezone, on_time/late/early, duplicate, inactive va checkout-before-checkin decisions.",
+      "result_report": "plans/checkin/result/step_06_attendance_service_result.md"
+    },
+    {
+      "step": "07",
+      "plan_file": "07_vector_search.md",
+      "status": "DONE",
+      "output": "app/services/vector_db.py::search_face",
+      "notes": "Da them FaceSearchHit va search_face dung Qdrant query_points, reuse validate embedding va map payload generic.",
+      "result_report": "plans/checkin/result/step_07_vector_search_result.md"
+    },
+    {
+      "step": "08",
+      "plan_file": "08_checkin_schemas.md",
+      "status": "DONE",
+      "output": "app/schemas/checkin.py",
+      "notes": "Da tao schema WebSocket check-in/check-out voi request validation, frame/session responses va structured invalid-message error.",
+      "result_report": "plans/checkin/result/step_08_checkin_schemas_result.md"
+    },
+    {
+      "step": "09",
+      "plan_file": "09_checkin_errors.md",
+      "status": "DONE",
+      "output": "app/core/exceptions.py check-in errors",
+      "notes": "Da them CheckinError, error code mapping va helper invalid message/image, frame, attendance, DB, timeout, internal.",
+      "result_report": "plans/checkin/result/step_09_checkin_errors_result.md"
+    },
+    {
+      "step": "10",
+      "plan_file": "10_dependencies_container.md",
+      "status": "DONE",
+      "output": "Check-in dependency factory/lifecycle",
+      "notes": "Da them singleton MySQL/AttendanceService, startup/shutdown MySQL pool va create_checkin_pipeline deferred factory.",
+      "result_report": "plans/checkin/result/step_10_dependencies_container_result.md"
+    },
+    {
+      "step": "11",
+      "plan_file": "11_checkin_pipeline.md",
+      "status": "DONE",
+      "output": "app/pipeline/checkin.py",
+      "notes": "Da tao CheckinPipeline async voi schema validation, decode, detection, anti-spoof advisory, quality, embedding, Qdrant search, confidence accumulation va AttendanceService decision.",
+      "result_report": "plans/checkin/result/step_11_checkin_pipeline_result.md"
+    },
+    {
+      "step": "12",
+      "plan_file": "12_websocket_api.md",
+      "status": "DONE",
+      "output": "app/api/v1/checkin.py va router include",
+      "notes": "Da tao WebSocket endpoint /api/v1/checkin/ws, tao pipeline per connection, safe send/close va terminal status handling.",
+      "result_report": "plans/checkin/result/step_12_websocket_api_result.md"
+    },
+    {
+      "step": "13",
+      "plan_file": "13_frontend_checkin_page.md",
+      "status": "DONE",
+      "output": "frontend/src/app/checkin/page.tsx va frontend/src/app/checkout/page.tsx",
+      "notes": "Da tao kiosk frontend rieng cho /checkin va /checkout, camera auto-open va scan lien tuc theo mode co dinh.",
+      "result_report": "plans/checkin/result/step_13_frontend_checkin_page_result.md"
+    },
+    {
+      "step": "14",
+      "plan_file": "14_backend_verification.md",
+      "status": "DONE",
+      "output": "Compile/import/health checks",
+      "notes": "Da chay compile/import/config/route checks, Docker health, Qdrant collection, MySQL schema va rebuild backend image de co aiomysql.",
+      "result_report": "plans/checkin/result/step_14_backend_verification_result.md"
+    },
+    {
+      "step": "15",
+      "plan_file": "15_e2e_test.md",
+      "status": "DONE",
+      "output": "E2E enrollment -> check-in -> check-out",
+      "notes": "Da chay business-service E2E, WebSocket contract va WebSocket real-face voi employee 'a'; phat hien va sua MySQL pooled transaction snapshot issue.",
+      "result_report": "plans/checkin/result/step_15_e2e_test_result.md"
+    },
+    {
+      "step": "16",
+      "plan_file": "16_frontend_browser_e2e.md",
+      "status": "PENDING",
+      "output": "Frontend browser/camera UX E2E cho /checkin va /checkout",
+      "notes": "Moi tao plan, chua code/chua test browser."
+    }
+  ],
+  "completed_details": [
+    {
+      "step": "01",
+      "title": "SQL Schema",
+      "created_files": [
+        "sql/01_create_attendance_tables.sql",
+        "plans/checkin/result/step_01_sql_schema_result.md"
+      ],
+      "decisions": [
+        "staffs la bang day du cho database dung chung.",
+        "password_hash chi luu hash, khong luu password plain text.",
+        "attendances dung PRIMARY KEY (employee_id, type, check_date).",
+        "Khong them id BIGINT AUTO_INCREMENT.",
+        "Khong them similarity_score trong step 01."
+      ]
+    },
+    {
+      "step": "02",
+      "title": "Docker Init SQL",
+      "modified_files": [
+        "docker-compose.yml"
+      ],
+      "created_files": [
+        "plans/checkin/result/step_02_docker_init_sql_result.md"
+      ],
+      "decisions": [
+        "Mount ./sql vao /docker-entrypoint-initdb.d:ro cho service mysql.",
+        "Khong reset hoac xoa mysql_data.",
+        "Ghi chu init SQL chi chay khi data directory rong."
+      ],
+      "verification": [
+        "docker compose config completed successfully.",
+        "Docker warned about access denied reading C:\\Users\\ADMIN\\.docker\\config.json, but rendered config successfully."
+      ]
+    },
+    {
+      "step": "03",
+      "title": "Config for Check-in and Attendance",
+      "modified_files": [
+        "config/config.yaml",
+        "app/core/config.py"
+      ],
+      "created_files": [
+        "plans/checkin/result/step_03_config_checkin_attendance_result.md"
+      ],
+      "decisions": [
+        "checkin.enforce_liveness mac dinh false vi anti-spoofing dang advisory.",
+        "Threshold va attendance rules nam trong config, khong hardcode trong pipeline/service.",
+        "Them env overrides cho Docker/deployment tuning."
+      ],
+      "verification": [
+        "load_config() read new checkin, attendance, mysql pool settings successfully.",
+        "Env overrides worked for CHECKIN_SIMILARITY_THRESHOLD, CHECKIN_ENFORCE_LIVENESS, ATTENDANCE_TIMEZONE, MYSQL_POOL_SIZE.",
+        "python -m compileall -q app/core/config.py passed."
+      ]
+    },
+    {
+      "step": "04",
+      "title": "Python Dependencies for MySQL",
+      "modified_files": [
+        "requirements-cpu.txt",
+        "requirements-gpu.txt"
+      ],
+      "created_files": [
+        "plans/checkin/result/step_04_python_dependencies_result.md"
+      ],
+      "decisions": [
+        "Them aiomysql==0.2.* cho async MySQL access.",
+        "Giu pymysql==1.1.* da co san.",
+        "Khong them bcrypt, dateutil hoac package ngoai scope."
+      ],
+      "verification": [
+        "Read back requirements-cpu.txt and requirements-gpu.txt.",
+        "Confirmed aiomysql and pymysql exist in both files.",
+        "Confirmed bcrypt/dateutil were not added."
+      ]
+    },
+    {
+      "step": "05",
+      "title": "MySQL Data Access Service",
+      "created_files": [
+        "app/services/mysql_db.py",
+        "plans/checkin/result/step_05_mysql_service_result.md"
+      ],
+      "decisions": [
+        "Tao MySQLDatabaseService chi phu trach data access, khong tinh late/early va khong xu ly AI.",
+        "Dung aiomysql connection pool va lazy import de module van import duoc truoc khi cai dependency.",
+        "Dung parameterized queries cho tat ca thao tac doc/ghi.",
+        "Map duplicate key tu PRIMARY KEY (employee_id, type, check_date) thanh DuplicateAttendanceError.",
+        "Khong them similarity_score vao insert vi schema step 01 khong luu truong nay."
+      ],
+      "verification": [
+        "python -m compileall -q app/services/mysql_db.py passed.",
+        "Imported MySQLDatabaseService, StaffRecord, AttendanceRecord, DuplicateAttendanceError successfully."
+      ]
+    },
+    {
+      "step": "06",
+      "title": "Attendance Business Service",
+      "created_files": [
+        "app/services/attendance.py",
+        "plans/checkin/result/step_06_attendance_service_result.md"
+      ],
+      "decisions": [
+        "Tao AttendanceService lam business layer, khong goi model AI va khong goi Qdrant.",
+        "Inject repository theo AttendanceRepository protocol de co the unit-test bang fake MySQL service.",
+        "record_attendance chap nhan StaffRecord, employee_id string hoac None de phu hop pipeline nhan dien sau nay.",
+        "similarity_score chi duoc tra ve trong AttendanceDecision, khong ghi vao MySQL vi schema attendances khong co truong nay.",
+        "now=None dung timezone trong config; test co the truyen datetime co dinh."
+      ],
+      "verification": [
+        "python -m compileall -q app/services/attendance.py passed.",
+        "Imported AttendanceService, AttendanceDecision, parse_hhmm, resolve_local_now successfully.",
+        "Inline fake repository check passed for late check-in, duplicate check-in, and valid checkout."
+      ]
+    },
+    {
+      "step": "07",
+      "title": "Qdrant Vector Search",
+      "modified_files": [
+        "app/services/vector_db.py"
+      ],
+      "created_files": [
+        "plans/checkin/result/step_07_vector_search_result.md"
+      ],
+      "decisions": [
+        "Them FaceSearchHit dataclass lam ket qua search co cau truc.",
+        "Them VectorDBService.search_face(embedding, limit=1, score_threshold=None).",
+        "Dung QdrantClient.query_points vi qdrant-client==1.14.* khong expose search().",
+        "Reuse _validate_embedding de giu validate 512-D/L2-normalized dong nhat voi upsert.",
+        "Khong ep payload phai co employee_id o service nay; pipeline se validate sau."
+      ],
+      "verification": [
+        "python -m compileall -q app/services/vector_db.py passed.",
+        "Imported VectorDBService and FaceSearchHit successfully.",
+        "Fake Qdrant client check passed for hit mapping and score_threshold forwarding."
+      ]
+    },
+    {
+      "step": "08",
+      "title": "Check-in WebSocket Schemas",
+      "created_files": [
+        "app/schemas/checkin.py",
+        "plans/checkin/result/step_08_checkin_schemas_result.md"
+      ],
+      "decisions": [
+        "Tao AttendanceFrameMessage voi action attendance_frame, type checkin/checkout va image string.",
+        "Dung ConfigDict(extra='forbid', str_strip_whitespace=True) theo pattern enrollment.",
+        "Khong decode image trong schema; chi validate non-empty va JPEG data URL neu la data URL.",
+        "Tao response models cho PROCESSING, REJECTED, UNKNOWN_FACE, session result va ERROR.",
+        "Them CheckinMessageValidationError tam thoi o schema layer; step 09 se bo sung CheckinError core."
+      ],
+      "verification": [
+        "python -m compileall -q app/schemas/checkin.py passed.",
+        "Parsed valid attendance_frame payload successfully.",
+        "Extra field was rejected and converted to structured ERROR/INVALID_MESSAGE.",
+        "Non-JPEG data URL was rejected and converted to structured ERROR/INVALID_MESSAGE."
+      ]
+    },
+    {
+      "step": "09",
+      "title": "CheckinError and Error Helpers",
+      "modified_files": [
+        "app/core/exceptions.py",
+        "app/schemas/checkin.py"
+      ],
+      "created_files": [
+        "plans/checkin/result/step_09_checkin_errors_result.md"
+      ],
+      "decisions": [
+        "Them CheckinErrorCode va CheckinError rieng, khong thay doi EnrollmentError.",
+        "to_websocket_payload tra UNKNOWN_FACE rieng, REJECTED cho per-frame va ERROR cho session-level.",
+        "Them helper checkin_invalid_message, checkin_invalid_image, checkin_frame_error, checkin_attendance_error, checkin_db_error, checkin_timeout_error, checkin_internal_error.",
+        "Cap nhat parse_attendance_frame_message dung checkin_invalid_message tu core.",
+        "Giu CheckinMessageValidationError lam alias cua CheckinError de tranh gay import tu step 08."
+      ],
+      "verification": [
+        "python -m compileall -q app/core/exceptions.py app/schemas/checkin.py app/schemas/enrollment.py app/api/v1/enrollment.py passed.",
+        "Imported EnrollmentError/enrollment schema and CheckinError/checkin schema successfully.",
+        "Checked JSON-safe payload for UNKNOWN_FACE, ALREADY_RECORDED, INVALID_MESSAGE.",
+        "Invalid check-in schema payload raises CheckinError with ERROR/INVALID_MESSAGE."
+      ]
+    },
+    {
+      "step": "10",
+      "title": "Dependencies Container for Check-in",
+      "modified_files": [
+        "app/core/dependencies.py",
+        "app/main.py"
+      ],
+      "created_files": [
+        "plans/checkin/result/step_10_dependencies_container_result.md"
+      ],
+      "decisions": [
+        "Them get_mysql_service() lam singleton MySQLDatabaseService.",
+        "Them get_attendance_service() lam singleton AttendanceService inject MySQL repository va attendance config.",
+        "Them connect_mysql_pool() va close_mysql_pool() de quan ly pool theo FastAPI startup/shutdown.",
+        "Them create_checkin_pipeline() voi deferred import vi app/pipeline/checkin.py se duoc tao o step 11.",
+        "reset_dependency_cache() clear them mysql va attendance singleton caches."
+      ],
+      "verification": [
+        "python -m compileall -q app/core/dependencies.py app/main.py app/services/mysql_db.py app/services/attendance.py passed.",
+        "Imported app.main:app successfully.",
+        "Created get_mysql_service() and get_attendance_service() successfully without connecting DB.",
+        "reset_dependency_cache() still works."
+      ]
+    },
+    {
+      "step": "11",
+      "title": "CheckinPipeline",
+      "created_files": [
+        "app/pipeline/checkin.py",
+        "plans/checkin/result/step_11_checkin_pipeline_result.md"
+      ],
+      "decisions": [
+        "Tao CheckinPipeline async vi AttendanceService.record_attendance ghi MySQL bat dong bo.",
+        "Moi pipeline giu state rieng cho mot WebSocket session: started_at, attendance_type, candidate_employee_id, consecutive_high, low_vote_counts, completed.",
+        "Anti-spoofing luon chay de lay debug/advisory score; enforce_liveness=false thi khong reject frame vi liveness thap.",
+        "Qdrant payload duoc validate employee_id trong pipeline, khong ep o VectorDBService.",
+        "Unknown face tra UNKNOWN_FACE va khong set completed, session co the tiep tuc.",
+        "Attendance final decision set completed=True de API co the dong WebSocket."
+      ],
+      "verification": [
+        "python -m compileall -q app/pipeline/checkin.py app/core/dependencies.py app/schemas/checkin.py app/core/exceptions.py passed.",
+        "Imported CheckinPipeline and app.main:app successfully.",
+        "Dependency factory symbol create_checkin_pipeline imports successfully without loading models.",
+        "Fake services smoke test passed for PROCESSING -> ATTENDANCE_SUCCESS.",
+        "Fake services smoke test passed for UNKNOWN_FACE low score.",
+        "Fake services smoke test passed for ERROR/SESSION_TIMEOUT."
+      ]
+    },
+    {
+      "step": "12",
+      "title": "Check-in WebSocket API",
+      "created_files": [
+        "app/api/v1/checkin.py",
+        "plans/checkin/result/step_12_websocket_api_result.md"
+      ],
+      "modified_files": [
+        "app/api/v1/router.py"
+      ],
+      "decisions": [
+        "Tao endpoint WebSocket /checkin/ws; voi prefix app la /api/v1/checkin/ws.",
+        "Moi WebSocket connection tao mot CheckinPipeline rieng bang create_checkin_pipeline().",
+        "Dung _safe_send_json va _safe_close de tranh stack trace khi client disconnect.",
+        "JSON sai cu phap hoac payload khong phai object duoc tra ERROR/INVALID_MESSAGE.",
+        "Dong socket sau terminal statuses: ATTENDANCE_SUCCESS, ALREADY_RECORDED, CHECKOUT_WITHOUT_CHECKIN, EMPLOYEE_INACTIVE, EMPLOYEE_NOT_FOUND, ERROR, SESSION_TIMEOUT.",
+        "Include checkin router ma van giu endpoint enrollment /api/v1/enroll/ws."
+      ],
+      "verification": [
+        "python -m compileall -q app/api/v1/checkin.py app/api/v1/router.py app/main.py app/pipeline/checkin.py passed.",
+        "Imported app.main:app successfully.",
+        "Route list contains /api/v1/checkin/ws and /api/v1/enroll/ws.",
+        "TERMINAL_STATUSES contains all statuses required by step 12."
+      ]
+    },
+    {
+      "step": "13",
+      "title": "Frontend Check-in and Checkout Pages",
+      "created_files": [
+        "frontend/src/app/_components/AttendanceKiosk.tsx",
+        "frontend/src/app/checkin/page.tsx",
+        "frontend/src/app/checkout/page.tsx",
+        "plans/checkin/result/step_13_frontend_checkin_page_result.md"
+      ],
+      "decisions": [
+        "Theo yeu cau moi, tach thanh hai route rieng /checkin va /checkout thay vi toggle trong mot trang.",
+        "Camera tu mo khi vao trang va giu bat lien tuc.",
+        "Moi route gui payload attendance_frame voi type co dinh: checkin hoac checkout.",
+        "Sau terminal response, frontend hien ket qua trong thoi gian ngan roi tu mo WebSocket session moi de tiep tuc quet nguoi ke tiep.",
+        "Dung canvas 4:3 640x480 cover-center de giu frame camera nam giua va khop bbox backend.",
+        "Trang dung chung AttendanceKiosk component de tranh copy logic camera/WebSocket."
+      ],
+      "verification": [
+        "npm run lint passed.",
+        "npm run build passed.",
+        "Next build generated static routes /checkin and /checkout.",
+        "Tried starting Next server on port 3000, but the background process did not keep an HTTP listener reachable in this shell environment."
+      ]
+    },
+    {
+      "step": "14",
+      "title": "Backend Verification",
+      "modified_files": [
+        "plans/checkin/plan_step_by_step/PROGRESS.json"
+      ],
+      "created_files": [
+        "plans/checkin/result/step_14_backend_verification_result.md"
+      ],
+      "decisions": [
+        "Ap dung SQL schema vao MySQL volume hien co vi init SQL chi tu chay khi volume rong.",
+        "Rebuild backend Docker image vi container cu chua co aiomysql sau step 04.",
+        "Restart backend container bang image moi.",
+        "Chay frontend lint/build lai de verify route /checkin va /checkout van compile."
+      ],
+      "verification": [
+        "python -m compileall -q app passed.",
+        "Imported app.main:app and route list contains /api/v1/checkin/ws and /api/v1/enroll/ws.",
+        "Config required checkin/attendance/mysql keys are present.",
+        "get_mysql_service(), get_attendance_service(), reset_dependency_cache() smoke check passed locally.",
+        "Docker Compose shows mysql/backend/qdrant running; backend healthy.",
+        "GET /health returned {\"status\":\"ok\"}.",
+        "Qdrant /collections returned face_embeddings.",
+        "MySQL has staffs and attendances tables after applying SQL schema.",
+        "Backend container imports aiomysql.",
+        "Backend container MySQLDatabaseService async connect/read/close smoke test passed.",
+        "npm run lint passed.",
+        "npm run build passed."
+      ]
+    },
+    {
+      "step": "15",
+      "title": "End-to-End Test",
+      "modified_files": [
+        "app/services/mysql_db.py",
+        "requirements-cpu.txt",
+        "requirements-gpu.txt",
+        "plans/checkin/plan_step_by_step/PROGRESS.json"
+      ],
+      "created_files": [
+        "plans/checkin/result/step_15_e2e_test_result.md"
+      ],
+      "decisions": [
+        "Verify Step 15 theo schema Step 01 da phe duyet: attendances luu employee_id, type, check_time, check_date, on_time.",
+        "Khong them status/similarity_score vao MySQL vi plan Step 15 phan nay da lech voi schema Step 01.",
+        "Them cryptography>=42 vao requirements CPU/GPU de ho tro MySQL sha256_password/caching_sha2_password auth.",
+        "Sua MySQLDatabaseService commit sau SELECT de pooled connections khong giu REPEATABLE READ snapshot cu.",
+        "Dung staff 'a' va anh debug da match Qdrant de verify luong WebSocket real-face."
+      ],
+      "verification": [
+        "Business service E2E passed for checkin success, duplicate checkin, checkout success, checkout without checkin, and inactive employee.",
+        "WebSocket black image returned REJECTED/NO_FACE.",
+        "WebSocket invalid JSON shape returned ERROR/INVALID_MESSAGE.",
+        "WebSocket real-face checkin returned PROCESSING then ATTENDANCE_SUCCESS for employee 'a'.",
+        "WebSocket duplicate checkin returned ALREADY_RECORDED.",
+        "WebSocket checkout returned ATTENDANCE_SUCCESS.",
+        "WebSocket inactive case returned EMPLOYEE_INACTIVE, then staff 'a' was restored to active.",
+        "MySQL attendances contains one checkin and one checkout row for employee 'a' on 2026-05-17.",
+        "python -m compileall -q app passed."
+      ]
+    }
+  ],
+  "next_suggested_step": {
+    "step": "16",
+    "plan_file": "16_frontend_browser_e2e.md",
+    "summary": "Preview va neu dong y thi thuc hien frontend browser/camera UX E2E cho /checkin va /checkout."
+  }
+}
