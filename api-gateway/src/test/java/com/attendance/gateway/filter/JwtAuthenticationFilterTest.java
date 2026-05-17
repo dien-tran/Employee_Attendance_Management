@@ -30,6 +30,23 @@ class JwtAuthenticationFilterTest {
     private static final String SIGNED_KEY = "test-only-signing-key-with-at-least-sixty-four-bytes-for-hs512-tests";
 
     @Test
+    void allowsPublicFaceCheckinWebSocketWithoutToken() {
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(WebClient.builder());
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/face/checkin/ws").build()
+        );
+        AtomicBoolean chainInvoked = new AtomicBoolean(false);
+
+        filter.filter(exchange, currentExchange -> {
+            chainInvoked.set(true);
+            return Mono.empty();
+        }).block();
+
+        assertThat(exchange.getResponse().getStatusCode()).isNull();
+        assertThat(chainInvoked).isTrue();
+    }
+
+    @Test
     void blocksRequestWhenIntrospectMarksTokenAsBlacklisted() throws Exception {
         String token = signedUserToken();
         JwtAuthenticationFilter filter = new JwtAuthenticationFilter(

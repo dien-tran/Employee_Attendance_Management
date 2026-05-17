@@ -5,6 +5,7 @@ networks:
 volumes:
   mysql-auth-data:
   mysql-core-data:
+  qdrant-data:
   e2e-node-modules:
 
 services:
@@ -83,6 +84,7 @@ services:
       EUREKA_URL: ${EUREKA_URL:-http://eureka-service:8761/eureka/}
       SIGNED_KEY: ${SIGNED_KEY:?Set SIGNED_KEY in .env}
       AUTH_INTROSPECT_URL: ${AUTH_INTROSPECT_URL:-http://auth-service:8081/auth/introspect}
+      FACE_SERVICE_URL: ${FACE_SERVICE_URL:-http://face-service:8083}
       GATEWAY_LOG_LEVEL: ${GATEWAY_LOG_LEVEL:-INFO}
     depends_on:
       eureka-service:
@@ -153,6 +155,67 @@ services:
         condition: service_healthy
       eureka-service:
         condition: service_healthy
+    networks:
+      - attendance-network
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    ports:
+      - "${QDRANT_REST_HOST_PORT:-6333}:6333"
+      - "${QDRANT_GRPC_HOST_PORT:-6334}:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    networks:
+      - attendance-network
+
+  face-service:
+    build:
+      context: ./face-service
+      dockerfile: Dockerfile
+    container_name: face-service
+    ports:
+      - "${FACE_SERVICE_HOST_PORT:-8083}:8083"
+    environment:
+      QDRANT_HOST: ${QDRANT_HOST:-qdrant}
+      QDRANT_PORT: ${QDRANT_PORT:-6333}
+      QDRANT_COLLECTION_NAME: ${QDRANT_COLLECTION_NAME:-face_embeddings}
+      QDRANT_EMBEDDING_DIM: ${QDRANT_EMBEDDING_DIM:-512}
+      CORE_ATTENDANCE_SYNC_URL: ${CORE_ATTENDANCE_SYNC_URL:-http://core-service:8082/api/internal/attendance/sync}
+      INTERNAL_JWT_SIGNED_KEY: ${INTERNAL_JWT_SIGNED_KEY:?Set INTERNAL_JWT_SIGNED_KEY in .env}
+      INTERNAL_JWT_ISSUER: ${INTERNAL_JWT_ISSUER:-ai-service}
+      INTERNAL_JWT_AUDIENCE: ${INTERNAL_JWT_AUDIENCE:-core-service}
+      INTERNAL_JWT_REQUIRED_SCOPE: ${INTERNAL_JWT_REQUIRED_SCOPE:-attendance:sync}
+      CHECKIN_SIMILARITY_THRESHOLD: ${CHECKIN_SIMILARITY_THRESHOLD:-0.55}
+      CHECKIN_HIGH_CONFIDENCE_THRESHOLD: ${CHECKIN_HIGH_CONFIDENCE_THRESHOLD:-0.75}
+      CHECKIN_REQUIRED_CONSECUTIVE_HIGH: ${CHECKIN_REQUIRED_CONSECUTIVE_HIGH:-2}
+      CHECKIN_REQUIRED_LOW_VOTES: ${CHECKIN_REQUIRED_LOW_VOTES:-3}
+      CHECKIN_SESSION_TIMEOUT_SEC: ${CHECKIN_SESSION_TIMEOUT_SEC:-30}
+      CHECKIN_FRAME_INTERVAL_MS: ${CHECKIN_FRAME_INTERVAL_MS:-400}
+      CHECKIN_ENFORCE_LIVENESS: ${CHECKIN_ENFORCE_LIVENESS:-false}
+      ATTENDANCE_CHECKIN_DEADLINE: ${ATTENDANCE_CHECKIN_DEADLINE:-08:00}
+      ATTENDANCE_CHECKOUT_START: ${ATTENDANCE_CHECKOUT_START:-16:30}
+      ATTENDANCE_TIMEZONE: ${ATTENDANCE_TIMEZONE:-Asia/Ho_Chi_Minh}
+      ATTENDANCE_REQUIRE_CHECKIN_BEFORE_CHECKOUT: ${ATTENDANCE_REQUIRE_CHECKIN_BEFORE_CHECKOUT:-true}
+      RUNTIME_DEVICE: ${RUNTIME_DEVICE:-cpu}
+      RUNTIME_GPU_ID: ${RUNTIME_GPU_ID:-0}
+      INSIGHTFACE_ROOT: ${INSIGHTFACE_ROOT:-.}
+      ANTI_SPOOF_MODEL_DIR: ${ANTI_SPOOF_MODEL_DIR:-./models/anti_spoof}
+      ANTI_SPOOF_DECISION_MODE: ${ANTI_SPOOF_DECISION_MODE:-advisory}
+      ANTI_SPOOF_COLOR_SPACE: ${ANTI_SPOOF_COLOR_SPACE:-bgr}
+      ANTI_SPOOF_DEBUG_SAVE_CROPS: "false"
+    volumes:
+      - ./face-service/models:/app/models:ro
+    depends_on:
+      core-service:
+        condition: service_started
+      qdrant:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8083/health', timeout=3).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     networks:
       - attendance-network
 

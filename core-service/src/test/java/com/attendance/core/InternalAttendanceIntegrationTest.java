@@ -84,6 +84,53 @@ class InternalAttendanceIntegrationTest {
     }
 
     @Test
+    @DisplayName("M2M sync: duplicate staff type and date returns 409")
+    void syncAttendance_WithDuplicateTypeAndDate_ReturnsConflict() throws Exception {
+        Map<String, Object> request = Map.of(
+                "staffId", "NV000003",
+                "type", "CHECK_IN",
+                "timestamp", "2026-05-17T08:00:00",
+                "date", "2026-05-17",
+                "onTime", true
+        );
+        String token = "Bearer " + createInternalJwt(TEST_SIGNING_KEY);
+
+        mockMvc.perform(post("/api/internal/attendance/sync")
+                        .header(INTERNAL_TOKEN_HEADER, token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/internal/attendance/sync")
+                        .header(INTERNAL_TOKEN_HEADER, token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(409))
+                .andExpect(jsonPath("$.message").value("ALREADY_RECORDED"));
+    }
+
+    @Test
+    @DisplayName("M2M sync: checkout without same-day check-in returns 400")
+    void syncAttendance_WithCheckoutBeforeCheckin_ReturnsBadRequest() throws Exception {
+        Map<String, Object> request = Map.of(
+                "staffId", "NV000004",
+                "type", "CHECK_OUT",
+                "timestamp", "2026-05-17T17:30:00",
+                "date", "2026-05-17",
+                "onTime", true
+        );
+
+        mockMvc.perform(post("/api/internal/attendance/sync")
+                        .header(INTERNAL_TOKEN_HEADER, "Bearer " + createInternalJwt(TEST_SIGNING_KEY))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("CHECKOUT_WITHOUT_CHECKIN"));
+    }
+
+    @Test
     @DisplayName("M2M sync: invalid internal JWT returns 401 and does not persist attendance")
     void syncAttendance_WithInvalidInternalJwt_ReturnsUnauthorizedAndDoesNotPersistAttendance() throws Exception {
         Map<String, Object> request = Map.of(

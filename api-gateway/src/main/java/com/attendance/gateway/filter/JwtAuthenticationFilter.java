@@ -29,7 +29,8 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     private static final List<String> PUBLIC_PATHS = List.of(
             "/api/auth/login",
             "/api/auth/refresh",
-            "/api/auth/introspect"
+            "/api/auth/introspect",
+            "/api/face/checkin/ws"
     );
 
     @Value("${app.jwt.signed-key}")

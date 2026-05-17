@@ -24,6 +24,8 @@ app:
     signed-key: ${SIGNED_KEY}
   auth-service:
     introspect-url: ${AUTH_INTROSPECT_URL:http://localhost:8081/auth/introspect}
+  face-service:
+    url: ${FACE_SERVICE_URL:http://localhost:8083}
 
 management:
   endpoints:

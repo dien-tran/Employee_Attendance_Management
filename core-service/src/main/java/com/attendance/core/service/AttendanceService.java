@@ -2,9 +2,11 @@ package com.attendance.core.service;
 
 import com.attendance.core.dto.request.SyncAttendanceRequest;
 import com.attendance.core.entity.Attendance;
+import com.attendance.core.exception.InternalAttendanceSyncException;
 import com.attendance.core.repository.AttendanceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -53,10 +55,33 @@ public class AttendanceService {
         LocalDate attendanceDate = request.getDate() != null
                 ? request.getDate()
                 : request.getTimestamp().toLocalDate();
+        String normalizedType = request.getType().toUpperCase();
+
+        attendanceRepository.findTopByStaffIdAndTypeAndDateOrderByTimestampDesc(
+                        request.getStaffId(),
+                        normalizedType,
+                        attendanceDate)
+                .ifPresent(existing -> {
+                    throw new InternalAttendanceSyncException(
+                            HttpStatus.CONFLICT,
+                            "ALREADY_RECORDED",
+                            "Attendance has already been recorded for this date");
+                });
+
+        if ("CHECK_OUT".equals(normalizedType)
+                && attendanceRepository.findTopByStaffIdAndTypeAndDateOrderByTimestampDesc(
+                        request.getStaffId(),
+                        "CHECK_IN",
+                        attendanceDate).isEmpty()) {
+            throw new InternalAttendanceSyncException(
+                    HttpStatus.BAD_REQUEST,
+                    "CHECKOUT_WITHOUT_CHECKIN",
+                    "Checkout requires a check-in record on the same date");
+        }
 
         Attendance attendance = Attendance.builder()
                 .staffId(request.getStaffId())
-                .type(request.getType().toUpperCase())
+                .type(normalizedType)
                 .timestamp(request.getTimestamp())
                 .date(attendanceDate)
                 .onTime(request.getOnTime())

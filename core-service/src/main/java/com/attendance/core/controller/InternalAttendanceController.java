@@ -3,6 +3,7 @@ package com.attendance.core.controller;
 import com.attendance.core.dto.request.SyncAttendanceRequest;
 import com.attendance.core.dto.response.ApiResponse;
 import com.attendance.core.entity.Attendance;
+import com.attendance.core.exception.InternalAttendanceSyncException;
 import com.attendance.core.service.AttendanceService;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSVerifier;
@@ -60,13 +61,18 @@ public class InternalAttendanceController {
             return authError;
         }
 
-        Attendance attendance = attendanceService.syncAttendance(request);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.<Attendance>builder()
-                        .code(201)
-                        .message("Attendance synced successfully")
-                        .result(attendance)
-                        .build());
+        try {
+            Attendance attendance = attendanceService.syncAttendance(request);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.<Attendance>builder()
+                            .code(201)
+                            .message("Attendance synced successfully")
+                            .result(attendance)
+                            .build());
+        } catch (InternalAttendanceSyncException ex) {
+            return ResponseEntity.status(ex.getStatus())
+                    .body(ApiResponse.error(ex.getStatus().value(), ex.getCode()));
+        }
     }
 
     @DeleteMapping("/{id}")
