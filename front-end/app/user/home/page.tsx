@@ -65,7 +65,7 @@ export default function EmployeeHomePage() {
         {/* Quick Actions */}
         <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
           <StaggerItem>
-            <Link href="/user/check">
+            <Link href="/checkin">
               <MotionCard className="p-6 cursor-pointer group">
                 <div className="flex items-center gap-4">
                   <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${isCheckedIn ? "bg-success/10" : "bg-scanner/10"}`}>

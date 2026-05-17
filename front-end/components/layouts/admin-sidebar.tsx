@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
 import {
   LayoutDashboard,
-  Camera,
   CalendarDays,
   Users,
   Settings,
@@ -25,11 +24,6 @@ const navItems = [
     title: "Dashboard",
     href: "/admin/dashboard",
     icon: LayoutDashboard,
-  },
-  {
-    title: "Manage Face Data",
-    href: "/admin/face-data",
-    icon: Camera,
   },
   {
     title: "Attendance",

@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useMemo, useEffect, useCallback } from "react"
+import { useState, useMemo, useEffect, useCallback, type KeyboardEvent } from "react"
 import { Chatbot } from '@/components/features/chatbot'
 import { MotionPage, MotionSection, StaggerContainer, StaggerItem, MotionCard } from '@/components/features/motion'
 import { EmployeeAvatar } from '@/components/features/employee-avatar'
+import { AdminEmployeeProfileModal } from "@/components/features/admin-employee-profile-modal"
 import { staffService, type StaffDTO, type StaffCreationRequest } from "@/services/staff.service"
 import { toast } from "@/hooks/use-toast"
-import { Search, UserPlus, Mail, Building2, LayoutGrid, List, X, Shield } from "lucide-react"
+import { Search, UserPlus, Mail, LayoutGrid, List, X, Shield, UserRound } from "lucide-react"
 import { MotionButton } from '@/components/features/motion'
 
 type ViewMode = "grid" | "list"
@@ -18,6 +19,8 @@ export default function AdminEmployeesPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid")
   const [isLoading, setIsLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [selectedStaff, setSelectedStaff] = useState<StaffDTO | null>(null)
+  const [faceRegistration, setFaceRegistration] = useState<Record<string, boolean>>({})
   const [errorMsg, setErrorMsg] = useState("")
   const [newStaff, setNewStaff] = useState<StaffCreationRequest>({
     name: "", email: "", dob: "", department: "", position: "", phone: "",
@@ -80,6 +83,17 @@ export default function AdminEmployeesPage() {
     setNewStaff((prev) => ({ ...prev, [field]: value }))
   }
 
+  const updateFaceRegistration = (staffId: string, registered: boolean) => {
+    setFaceRegistration((prev) => ({ ...prev, [staffId]: registered }))
+  }
+
+  const openProfileFromKeyboard = (event: KeyboardEvent, staff: StaffDTO) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault()
+      setSelectedStaff(staff)
+    }
+  }
+
   return (
     <>
       <MotionPage className="p-6 lg:p-8">
@@ -134,20 +148,37 @@ export default function AdminEmployeesPage() {
               <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredStaff.map((staff) => (
                   <StaggerItem key={staff.id}>
-                    <MotionCard className="p-0 overflow-hidden" data-testid={`staff-card-${staff.staffId || staff.id}`}>
+                    <MotionCard
+                      className="p-0 overflow-hidden cursor-pointer"
+                      data-testid={`staff-card-${staff.staffId || staff.id}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setSelectedStaff(staff)}
+                      onKeyDown={(event) => openProfileFromKeyboard(event, staff)}
+                    >
                       <div className="p-6">
                         <div className="flex flex-col items-center text-center">
                           <EmployeeAvatar name={staff.name} status={staff.status === "ACTIVE" ? "online" : "offline"} size="lg" />
                           <h3 className="mt-4 font-semibold" data-testid={`staff-name-${staff.staffId || staff.id}`}>{staff.name}</h3>
                           <p className="text-sm text-muted-foreground">{staff.position || "N/A"}</p>
                           <p className="text-xs text-muted-foreground mt-1">{staff.department} - {staff.staffId}</p>
+                          <span className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+                            faceRegistration[staff.id] ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                          }`}>
+                            <UserRound className="h-3.5 w-3.5" />
+                            {faceRegistration[staff.id] ? "Face registered" : "Face pending"}
+                          </span>
                         </div>
                       </div>
                       <div className="border-t border-border bg-muted/30 px-6 py-3 space-y-2">
-                        <a href={`mailto:${staff.email}`} className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                        <a
+                          href={`mailto:${staff.email}`}
+                          onClick={(event) => event.stopPropagation()}
+                          className="flex items-center justify-center gap-2 text-sm text-muted-foreground"
+                        >
                           <Mail className="h-4 w-4" /><span className="truncate">{staff.email}</span>
                         </a>
-                        <button onClick={() => handleToggleStatus(staff)}
+                        <button onClick={(event) => { event.stopPropagation(); handleToggleStatus(staff) }}
                           data-testid={`staff-toggle-status-${staff.staffId || staff.id}`}
                           className={`w-full flex items-center justify-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium ${
                             staff.status === "ACTIVE" ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success"}`}>
@@ -171,12 +202,20 @@ export default function AdminEmployeesPage() {
                         <th className="px-4 py-3 text-left text-sm font-medium">Department</th>
                         <th className="px-4 py-3 text-left text-sm font-medium">Email</th>
                         <th className="px-4 py-3 text-left text-sm font-medium">Status</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Face</th>
                         <th className="px-4 py-3 text-left text-sm font-medium">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredStaff.map((staff) => (
-                        <tr key={staff.id} className="border-b border-border hover:bg-muted/50" data-testid={`staff-row-${staff.staffId || staff.id}`}>
+                        <tr
+                          key={staff.id}
+                          className="cursor-pointer border-b border-border hover:bg-muted/50"
+                          data-testid={`staff-row-${staff.staffId || staff.id}`}
+                          tabIndex={0}
+                          onClick={() => setSelectedStaff(staff)}
+                          onKeyDown={(event) => openProfileFromKeyboard(event, staff)}
+                        >
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
                               <EmployeeAvatar name={staff.name} size="sm" />
@@ -195,7 +234,15 @@ export default function AdminEmployeesPage() {
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <button onClick={() => handleToggleStatus(staff)}
+                            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                              faceRegistration[staff.id] ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                            }`}>
+                              <UserRound className="h-3.5 w-3.5" />
+                              {faceRegistration[staff.id] ? "Registered" : "Pending"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <button onClick={(event) => { event.stopPropagation(); handleToggleStatus(staff) }}
                               data-testid={`staff-toggle-status-${staff.staffId || staff.id}`}
                               className={`text-xs font-medium px-2 py-1 rounded ${
                                 staff.status === "ACTIVE" ? "text-destructive" : "text-success"}`}>
@@ -298,6 +345,14 @@ export default function AdminEmployeesPage() {
             </div>
           </div>
         </div>
+      )}
+      {selectedStaff && (
+        <AdminEmployeeProfileModal
+          staff={selectedStaff}
+          faceRegistered={Boolean(faceRegistration[selectedStaff.id])}
+          onClose={() => setSelectedStaff(null)}
+          onFaceRegisteredChange={updateFaceRegistration}
+        />
       )}
       <Chatbot />
     </>

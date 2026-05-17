@@ -27,9 +27,14 @@ const navItems = [
     icon: LayoutDashboard,
   },
   {
-    title: "Check In/Out",
-    href: "/user/check",
+    title: "Check In",
+    href: "/checkin",
     icon: Camera,
+  },
+  {
+    title: "Check Out",
+    href: "/checkout",
+    icon: LogOut,
   },
   {
     title: "My Attendance",
