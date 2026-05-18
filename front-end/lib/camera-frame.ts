@@ -1,7 +1,16 @@
 export const CAMERA_FRAME_WIDTH = 640
 export const CAMERA_FRAME_HEIGHT = 480
 export const CAMERA_FRAME_ASPECT_RATIO = CAMERA_FRAME_WIDTH / CAMERA_FRAME_HEIGHT
-export const CAMERA_FRAME_JPEG_QUALITY = 0.85
+export const CAMERA_FRAME_JPEG_QUALITY = 0.95
+
+export type FaceBoundingBox = [number, number, number, number]
+
+export interface FaceBoundingRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
 
 export function drawVideoCoverFrame(
   video: HTMLVideoElement | null,
@@ -21,6 +30,9 @@ export function drawVideoCoverFrame(
   if (!context) {
     return false
   }
+
+  context.imageSmoothingEnabled = true
+  context.imageSmoothingQuality = "high"
 
   const sourceAspectRatio = sourceWidth / sourceHeight
   let cropX = 0
@@ -59,6 +71,38 @@ export function canvasToJpegDataUrl(canvas: HTMLCanvasElement | null) {
   }
 
   return canvas.toDataURL("image/jpeg", CAMERA_FRAME_JPEG_QUALITY)
+}
+
+export function normalizeFaceBoundingBox(value: unknown): FaceBoundingBox | null {
+  if (!Array.isArray(value) || value.length < 4) {
+    return null
+  }
+
+  const box = value.slice(0, 4).map((coordinate) => Number(coordinate))
+  if (box.some((coordinate) => !Number.isFinite(coordinate))) {
+    return null
+  }
+
+  return box as FaceBoundingBox
+}
+
+export function faceBoundingBoxToRect(box: FaceBoundingBox | null): FaceBoundingRect | null {
+  if (!box) {
+    return null
+  }
+
+  const [x1, y1, x2, y2] = box
+  const x = Math.max(0, Math.min(x1, x2))
+  const y = Math.max(0, Math.min(y1, y2))
+  const right = Math.min(CAMERA_FRAME_WIDTH, Math.max(x1, x2))
+  const bottom = Math.min(CAMERA_FRAME_HEIGHT, Math.max(y1, y2))
+
+  return {
+    x,
+    y,
+    width: Math.max(0, right - x),
+    height: Math.max(0, bottom - y),
+  }
 }
 
 export function createFaceWebSocketUrl(path: string) {

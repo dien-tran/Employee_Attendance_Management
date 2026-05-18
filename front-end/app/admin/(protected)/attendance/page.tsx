@@ -6,7 +6,7 @@ import { MotionPage, MotionSection, MotionTableRow } from '@/components/features
 import { EmployeeAvatar } from '@/components/features/employee-avatar'
 import { attendanceService, type AttendanceDTO } from '@/services/attendance.service'
 import { staffService, type StaffDTO } from '@/services/staff.service'
-import { Calendar, Search, Filter, Download } from "lucide-react"
+import { Calendar, Search, Filter, Download, LogIn, LogOut } from "lucide-react"
 import { MotionButton } from '@/components/features/motion'
 
 type StatusFilter = "all" | "on-time" | "late" | "recorded"
@@ -79,8 +79,18 @@ export default function AdminAttendancePage() {
       onTime: records.filter((r) => r.onTime === true).length,
       late: records.filter((r) => r.onTime === false).length,
       recorded: records.filter((r) => r.onTime == null).length,
+      checkIn: records.filter((r) => r.type === "CHECK_IN").length,
+      checkOut: records.filter((r) => r.type === "CHECK_OUT").length,
     }
   }, [records])
+
+  const checkInRecords = useMemo(() => {
+    return filteredRecords.filter((record) => record.type === "CHECK_IN")
+  }, [filteredRecords])
+
+  const checkOutRecords = useMemo(() => {
+    return filteredRecords.filter((record) => record.type === "CHECK_OUT")
+  }, [filteredRecords])
 
   return (
     <>
@@ -169,56 +179,7 @@ export default function AdminAttendancePage() {
         </MotionSection>
 
         <MotionSection>
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full" data-testid="admin-attendance-table">
-                <thead>
-                  <tr className="border-b border-border bg-muted/30">
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Employee</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Staff ID</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Date</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Time</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Type</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRecords.slice(0, 20).map((record, index) => {
-                    const staff = staffByStaffId.get(record.staffId)
-                    const employeeName = staff?.name ?? record.staffId
-
-                    return (
-                      <MotionTableRow key={record.id} index={index} data-testid={`admin-attendance-row-${record.id}`}>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <EmployeeAvatar name={employeeName} size="sm" />
-                            <span className="font-medium text-foreground" data-testid={`admin-attendance-employee-${record.id}`}>
-                              {employeeName}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground" data-testid={`admin-attendance-staff-id-${record.id}`}>
-                          {record.staffId}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground" data-testid={`admin-attendance-date-${record.id}`}>
-                          {formatDate(record.date)}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-foreground" data-testid={`admin-attendance-time-${record.id}`}>
-                          {formatTime(record.timestamp)}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-foreground" data-testid={`admin-attendance-type-${record.id}`}>
-                          {formatType(record.type)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <StatusBadge record={record} />
-                        </td>
-                      </MotionTableRow>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-
+          <div className="grid gap-6">
             {isLoading && (
               <div data-testid="admin-attendance-loading-state" className="py-12 text-center text-muted-foreground">
                 Loading attendance records...
@@ -231,24 +192,145 @@ export default function AdminAttendancePage() {
               </div>
             )}
 
-            {!isLoading && !error && filteredRecords.length === 0 && (
-              <div data-testid="admin-attendance-empty-state" className="flex flex-col items-center justify-center py-12 text-center">
-                <p className="text-muted-foreground">No records found matching your filters.</p>
-              </div>
-            )}
+            {!isLoading && !error && (
+              <>
+                <AttendanceTable
+                  title="Check-in"
+                  description="Employee arrivals for the selected date"
+                  icon={LogIn}
+                  records={checkInRecords}
+                  totalRecords={statusCounts.checkIn}
+                  staffByStaffId={staffByStaffId}
+                  tableTestId="admin-attendance-checkin-table"
+                  emptyTestId="admin-attendance-checkin-empty-state"
+                />
+                <AttendanceTable
+                  title="Checkout"
+                  description="Employee departures for the selected date"
+                  icon={LogOut}
+                  records={checkOutRecords}
+                  totalRecords={statusCounts.checkOut}
+                  staffByStaffId={staffByStaffId}
+                  tableTestId="admin-attendance-checkout-table"
+                  emptyTestId="admin-attendance-checkout-empty-state"
+                />
 
-            {filteredRecords.length > 20 && (
-              <div className="border-t border-border p-4 text-center">
-                <p className="text-sm text-muted-foreground">
-                  Showing 20 of {filteredRecords.length} records
-                </p>
-              </div>
+                {filteredRecords.length === 0 && (
+                  <div data-testid="admin-attendance-empty-state" className="sr-only">
+                    No records found matching your filters.
+                  </div>
+                )}
+              </>
             )}
           </div>
         </MotionSection>
       </MotionPage>
       <Chatbot />
     </>
+  )
+}
+
+interface AttendanceTableProps {
+  title: string
+  description: string
+  icon: typeof LogIn
+  records: AttendanceDTO[]
+  totalRecords: number
+  staffByStaffId: Map<string, StaffDTO>
+  tableTestId: string
+  emptyTestId: string
+}
+
+function AttendanceTable({
+  title,
+  description,
+  icon: Icon,
+  records,
+  totalRecords,
+  staffByStaffId,
+  tableTestId,
+  emptyTestId,
+}: AttendanceTableProps) {
+  const visibleRecords = records.slice(0, 20)
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="flex flex-col gap-3 border-b border-border bg-muted/20 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
+            <Icon className="size-4 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-foreground">{title}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          </div>
+        </div>
+        <span className="w-fit rounded-md bg-background px-3 py-1 text-sm font-medium text-foreground">
+          {records.length} shown / {totalRecords} total
+        </span>
+      </div>
+
+      {records.length === 0 ? (
+        <div data-testid={emptyTestId} className="flex flex-col items-center justify-center py-12 text-center">
+          <p className="text-muted-foreground">No {title.toLowerCase()} records found.</p>
+        </div>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full" data-testid={tableTestId}>
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Employee</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Staff ID</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Date</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Time</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleRecords.map((record, index) => {
+                  const staff = staffByStaffId.get(record.staffId)
+                  const employeeName = staff?.name ?? record.staffId
+
+                  return (
+                    <MotionTableRow key={record.id} index={index} data-testid={`admin-attendance-row-${record.id}`}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <EmployeeAvatar name={employeeName} size="sm" />
+                          <span className="font-medium text-foreground" data-testid={`admin-attendance-employee-${record.id}`}>
+                            {employeeName}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground" data-testid={`admin-attendance-staff-id-${record.id}`}>
+                        {record.staffId}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground" data-testid={`admin-attendance-date-${record.id}`}>
+                        {formatDate(record.date)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-foreground" data-testid={`admin-attendance-time-${record.id}`}>
+                        {formatTime(record.timestamp)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge record={record} />
+                      </td>
+                    </MotionTableRow>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {records.length > 20 && (
+            <div className="border-t border-border p-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                Showing 20 of {records.length} {title.toLowerCase()} records
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </section>
   )
 }
 
@@ -280,8 +362,4 @@ function formatDate(value: string) {
 
 function formatTime(value: string) {
   return value.slice(11, 16)
-}
-
-function formatType(value: AttendanceDTO["type"]) {
-  return value === "CHECK_IN" ? "Check In" : "Check Out"
 }

@@ -2,26 +2,27 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
-  Camera,
   CheckCircle2,
   Clock3,
   LogIn,
   LogOut,
-  RotateCcw,
   ScanFace,
   ShieldCheck,
   VideoOff,
   XCircle,
 } from "lucide-react"
 
-import { MotionButton, MotionPage, MotionSection } from "@/components/features/motion"
+import { MotionPage, MotionSection } from "@/components/features/motion"
 import {
   CAMERA_FRAME_ASPECT_RATIO,
   CAMERA_FRAME_HEIGHT,
   CAMERA_FRAME_WIDTH,
+  type FaceBoundingBox,
   canvasToJpegDataUrl,
   createFaceWebSocketUrl,
   drawVideoCoverFrame,
+  faceBoundingBoxToRect,
+  normalizeFaceBoundingBox,
 } from "@/lib/camera-frame"
 import { cn } from "@/lib/utils"
 
@@ -60,6 +61,10 @@ interface AttendanceResponse {
   on_time?: boolean
   attendance_status?: "on_time" | "late" | "early" | "unknown"
   similarity_score?: number | null
+  face_bbox?: FaceBoundingBox | null
+  details?: {
+    face_bbox?: FaceBoundingBox | null
+  } | null
 }
 
 const terminalStatuses = new Set<AttendanceResponse["status"]>([
@@ -71,6 +76,9 @@ const terminalStatuses = new Set<AttendanceResponse["status"]>([
   "ERROR",
 ])
 
+const AUTO_RESTART_DELAY_MS = 2500
+const AUTO_ERROR_RETRY_DELAY_MS = 4000
+
 const modeCopy = {
   checkin: {
     title: "Face Check-in",
@@ -79,7 +87,6 @@ const modeCopy = {
     complete: "Check-in recorded",
     icon: LogIn,
     accentClass: "text-scanner",
-    buttonVariant: "scanner" as const,
   },
   checkout: {
     title: "Face Checkout",
@@ -88,7 +95,6 @@ const modeCopy = {
     complete: "Checkout recorded",
     icon: LogOut,
     accentClass: "text-success",
-    buttonVariant: "success" as const,
   },
 }
 
@@ -116,6 +122,10 @@ function formatTime(value?: string) {
   return parsed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 }
 
+function getResponseFaceBox(response: AttendanceResponse) {
+  return normalizeFaceBoundingBox(response.face_bbox ?? response.details?.face_bbox)
+}
+
 export function AttendanceKiosk({ mode }: AttendanceKioskProps) {
   const copy = modeCopy[mode]
   const ModeIcon = copy.icon
@@ -123,12 +133,14 @@ export function AttendanceKiosk({ mode }: AttendanceKioskProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const socketRef = useRef<WebSocket | null>(null)
-  const sendIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const sendIntervalRef = useRef<number | null>(null)
   const manualCloseRef = useRef(false)
   const [cameraError, setCameraError] = useState("")
+  const [cameraReady, setCameraReady] = useState(false)
   const [scanPhase, setScanPhase] = useState<ScanPhase>("ready")
   const [lastResponse, setLastResponse] = useState<AttendanceResponse | null>(null)
-  const [now, setNow] = useState(() => new Date())
+  const [faceBox, setFaceBox] = useState<FaceBoundingBox | null>(null)
+  const [now, setNow] = useState<Date | null>(null)
 
   const stopSending = useCallback(() => {
     if (sendIntervalRef.current) {
@@ -150,7 +162,9 @@ export function AttendanceKiosk({ mode }: AttendanceKioskProps) {
   }, [stopSending])
 
   useEffect(() => {
-    const interval = window.setInterval(() => setNow(new Date()), 1000)
+    const updateClock = () => setNow(new Date())
+    updateClock()
+    const interval = window.setInterval(updateClock, 1000)
     return () => window.clearInterval(interval)
   }, [])
 
@@ -176,12 +190,14 @@ export function AttendanceKiosk({ mode }: AttendanceKioskProps) {
         }
 
         streamRef.current = stream
+        setCameraReady(true)
         if (videoRef.current) {
           videoRef.current.srcObject = stream
           videoRef.current.play().catch(() => undefined)
         }
       } catch {
         if (active) {
+          setCameraReady(false)
           setCameraError("Camera unavailable")
         }
       }
@@ -241,7 +257,7 @@ export function AttendanceKiosk({ mode }: AttendanceKioskProps) {
     if (cameraError || scanPhase === "connecting" || scanPhase === "scanning") return
 
     closeSocket(true)
-    setLastResponse(null)
+    setFaceBox(null)
     setScanPhase("connecting")
 
     const socket = new WebSocket(createFaceWebSocketUrl("/api/face/checkin/ws"))
@@ -268,6 +284,10 @@ export function AttendanceKiosk({ mode }: AttendanceKioskProps) {
       }
 
       setLastResponse(response)
+      const nextFaceBox = getResponseFaceBox(response)
+      if (nextFaceBox) {
+        setFaceBox(nextFaceBox)
+      }
 
       if (response.status === "ATTENDANCE_SUCCESS") {
         terminalReached = true
@@ -311,30 +331,41 @@ export function AttendanceKiosk({ mode }: AttendanceKioskProps) {
           reason: "CONNECTION_CLOSED",
           message: "Face service connection closed",
         })
+        setFaceBox(null)
         setScanPhase("failed")
       }
       manualCloseRef.current = false
     }
   }, [cameraError, closeSocket, scanPhase, sendFrame, stopSending])
 
-  const reset = useCallback(() => {
-    closeSocket(true)
-    setLastResponse(null)
-    setScanPhase("ready")
-    videoRef.current?.play().catch(() => undefined)
-  }, [closeSocket])
+  useEffect(() => {
+    if (!cameraReady || cameraError || scanPhase === "connecting" || scanPhase === "scanning") {
+      return
+    }
 
-  const formattedTime = now.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  })
+    const delay = scanPhase === "failed" ? AUTO_ERROR_RETRY_DELAY_MS : AUTO_RESTART_DELAY_MS
+    const restartTimer = window.setTimeout(() => {
+      startScan()
+    }, scanPhase === "ready" ? 0 : delay)
 
-  const formattedDate = now.toLocaleDateString([], {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  })
+    return () => window.clearTimeout(restartTimer)
+  }, [cameraError, cameraReady, scanPhase, startScan])
+
+  const formattedTime = now
+    ? now.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    : "--:--:--"
+
+  const formattedDate = now
+    ? now.toLocaleDateString([], {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      })
+    : "Today"
 
   const statusTone =
     scanPhase === "success"
@@ -344,6 +375,8 @@ export function AttendanceKiosk({ mode }: AttendanceKioskProps) {
         : scanPhase === "connecting" || scanPhase === "scanning"
           ? "bg-scanner"
           : "bg-muted-foreground"
+
+  const faceBoxRect = faceBoundingBoxToRect(faceBox)
 
   return (
     <MotionPage className="min-h-screen bg-background px-4 py-5 sm:px-6 lg:px-8">
@@ -379,6 +412,24 @@ export function AttendanceKiosk({ mode }: AttendanceKioskProps) {
                 <>
                   <video ref={videoRef} autoPlay muted playsInline className="hidden" />
                   <canvas ref={canvasRef} className="block h-full w-full scale-x-[-1]" />
+                  {faceBoxRect && (
+                    <svg
+                      className="pointer-events-none absolute inset-0 h-full w-full scale-x-[-1]"
+                      viewBox={`0 0 ${CAMERA_FRAME_WIDTH} ${CAMERA_FRAME_HEIGHT}`}
+                      preserveAspectRatio="xMidYMid meet"
+                    >
+                      <rect
+                        x={faceBoxRect.x}
+                        y={faceBoxRect.y}
+                        width={faceBoxRect.width}
+                        height={faceBoxRect.height}
+                        fill="none"
+                        stroke="var(--scanner)"
+                        strokeWidth="3"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    </svg>
+                  )}
                 </>
               )}
             </div>
@@ -390,22 +441,9 @@ export function AttendanceKiosk({ mode }: AttendanceKioskProps) {
                 <span className="truncate">{scanPhase === "scanning" ? copy.activeAction : formatBackendStatus(lastResponse)}</span>
               </div>
 
-              <div className="flex gap-2">
-                {(scanPhase === "success" || scanPhase === "failed" || scanPhase === "scanning" || scanPhase === "connecting") && (
-                  <MotionButton variant="outline" onClick={reset} className="gap-2">
-                    <RotateCcw className="size-4" />
-                    {scanPhase === "scanning" || scanPhase === "connecting" ? "Stop" : "Reset"}
-                  </MotionButton>
-                )}
-                <MotionButton
-                  variant={copy.buttonVariant}
-                  onClick={startScan}
-                  disabled={Boolean(cameraError) || scanPhase === "connecting" || scanPhase === "scanning"}
-                  className="gap-2"
-                >
-                  <Camera className="size-4" />
-                  {copy.action}
-                </MotionButton>
+              <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground">
+                <span className={cn("size-2 rounded-full", statusTone)} />
+                {scanPhase === "connecting" ? "Starting" : scanPhase === "failed" ? "Retrying" : "Auto scan"}
               </div>
             </div>
           </section>

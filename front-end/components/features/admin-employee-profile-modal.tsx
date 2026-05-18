@@ -22,9 +22,12 @@ import {
   CAMERA_FRAME_ASPECT_RATIO,
   CAMERA_FRAME_HEIGHT,
   CAMERA_FRAME_WIDTH,
+  type FaceBoundingBox,
   canvasToJpegDataUrl,
   createFaceWebSocketUrl,
   drawVideoCoverFrame,
+  faceBoundingBoxToRect,
+  normalizeFaceBoundingBox,
 } from "@/lib/camera-frame"
 import { cn } from "@/lib/utils"
 import type { StaffDTO } from "@/services/staff.service"
@@ -43,8 +46,12 @@ interface EnrollmentResponse {
   accepted_count?: number
   required_count?: number
   anti_spoof_score?: number
+  face_bbox?: FaceBoundingBox | null
   reason?: string
   message?: string
+  details?: {
+    face_bbox?: FaceBoundingBox | null
+  } | null
   data?: {
     employee_id: string
     full_name: string
@@ -73,8 +80,10 @@ export function AdminEmployeeProfileModal({
   const [acceptedCount, setAcceptedCount] = useState(0)
   const [requiredCount, setRequiredCount] = useState(0)
   const [livenessScore, setLivenessScore] = useState<number | null>(null)
+  const [faceBox, setFaceBox] = useState<FaceBoundingBox | null>(null)
 
   const hasValidDob = /^\d{4}-\d{2}-\d{2}$/.test(staff.dob || "")
+  const faceBoxRect = faceBoundingBoxToRect(faceBox)
 
   const stopSending = useCallback(() => {
     if (sendIntervalRef.current) {
@@ -141,6 +150,7 @@ export function AdminEmployeeProfileModal({
       streamRef.current = stream
       setCameraReady(true)
       setEnrollmentMessage("Camera is ready for face registration")
+      setFaceBox(null)
     } catch {
       setCameraError("Camera unavailable")
       setCameraReady(false)
@@ -178,6 +188,7 @@ export function AdminEmployeeProfileModal({
     setAcceptedCount(0)
     setRequiredCount(0)
     setLivenessScore(null)
+    setFaceBox(null)
 
     const socket = new WebSocket(createFaceWebSocketUrl("/api/face/enroll/ws"))
     let terminalReached = false
@@ -204,6 +215,8 @@ export function AdminEmployeeProfileModal({
       }
 
       if (response.status === "GOOD_FRAME") {
+        const nextFaceBox = normalizeFaceBoundingBox(response.face_bbox ?? response.details?.face_bbox)
+        if (nextFaceBox) setFaceBox(nextFaceBox)
         setEnrollmentPhase("collecting")
         setEnrollmentMessage(response.message || "Good frame accepted")
         setAcceptedCount(response.accepted_count ?? acceptedCount)
@@ -213,6 +226,8 @@ export function AdminEmployeeProfileModal({
       }
 
       if (response.status === "REJECTED") {
+        const nextFaceBox = normalizeFaceBoundingBox(response.face_bbox ?? response.details?.face_bbox)
+        if (nextFaceBox) setFaceBox(nextFaceBox)
         setEnrollmentPhase("collecting")
         setEnrollmentMessage(response.message || response.reason || "Frame rejected")
         if (typeof response.accepted_count === "number") setAcceptedCount(response.accepted_count)
@@ -233,6 +248,7 @@ export function AdminEmployeeProfileModal({
       } else {
         setEnrollmentPhase("error")
         setEnrollmentMessage(response.message || response.reason || "Unable to register face")
+        setFaceBox(null)
       }
 
       socket.close()
@@ -243,6 +259,7 @@ export function AdminEmployeeProfileModal({
       stopSending()
       setEnrollmentPhase("error")
       setEnrollmentMessage("Unable to connect to face service")
+      setFaceBox(null)
     }
 
     socket.onclose = () => {
@@ -269,6 +286,7 @@ export function AdminEmployeeProfileModal({
     setAcceptedCount(0)
     setRequiredCount(0)
     setLivenessScore(null)
+    setFaceBox(null)
   }
 
   return (
@@ -349,6 +367,24 @@ export function AdminEmployeeProfileModal({
                   <>
                     <video ref={videoRef} autoPlay muted playsInline className="hidden" />
                     <canvas ref={canvasRef} className="block h-full w-full scale-x-[-1]" />
+                    {faceBoxRect && (
+                      <svg
+                        className="pointer-events-none absolute inset-0 h-full w-full scale-x-[-1]"
+                        viewBox={`0 0 ${CAMERA_FRAME_WIDTH} ${CAMERA_FRAME_HEIGHT}`}
+                        preserveAspectRatio="xMidYMid meet"
+                      >
+                        <rect
+                          x={faceBoxRect.x}
+                          y={faceBoxRect.y}
+                          width={faceBoxRect.width}
+                          height={faceBoxRect.height}
+                          fill="none"
+                          stroke="var(--scanner)"
+                          strokeWidth="3"
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      </svg>
+                    )}
                   </>
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center">
