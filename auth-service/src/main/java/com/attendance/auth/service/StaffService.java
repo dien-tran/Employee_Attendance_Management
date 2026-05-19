@@ -76,6 +76,7 @@ public class StaffService {
                 .password(hashedPassword)
                 .role(role)
                 .status("ACTIVE")
+                .hasFace(false)
                 .build();
 
         Staff savedStaff = staffRepository.save(staff);

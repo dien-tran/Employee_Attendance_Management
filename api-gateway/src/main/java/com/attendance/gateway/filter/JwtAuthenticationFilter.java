@@ -30,7 +30,8 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/auth/login",
             "/api/auth/refresh",
             "/api/auth/introspect",
-            "/api/face/checkin/ws"
+            "/api/face/checkin/ws",
+            "/api/chatbot/health"
     );
 
     @Value("${app.jwt.signed-key}")

@@ -72,6 +72,7 @@ public class DataInitializer implements ApplicationRunner {
                 .password(passwordEncoder.encode(adminPassword))
                 .role("ADMIN")
                 .status("ACTIVE")
+                .hasFace(false)
                 .build();
 
         staffRepository.save(admin);

@@ -32,6 +32,8 @@ app:
     introspect-url: ${AUTH_INTROSPECT_URL:http://localhost:8081/auth/introspect}
   face-service:
     url: ${FACE_SERVICE_URL:http://localhost:8083}
+  chat-service:
+    url: ${CHAT_SERVICE_URL:http://localhost:8000}
 
 management:
   endpoints:

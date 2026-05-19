@@ -61,4 +61,8 @@ public class Staff {
 
     @Column(name = "role", length = 10)
     private String role; // ADMIN / USER
+
+    @Builder.Default
+    @Column(name = "has_face", nullable = false)
+    private Boolean hasFace = false;
 }

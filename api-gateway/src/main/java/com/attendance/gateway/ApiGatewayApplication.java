@@ -4,6 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
+import org.springframework.http.HttpMethod;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -32,7 +33,8 @@ public class ApiGatewayApplication {
     @Bean
     public RouteLocator attendanceRoutes(
             RouteLocatorBuilder builder,
-            @Value("${app.face-service.url}") String faceServiceUrl) {
+            @Value("${app.face-service.url}") String faceServiceUrl,
+            @Value("${app.chat-service.url}") String chatServiceUrl) {
         return builder.routes()
                 .route("auth-service-public", route -> route
                         .path("/api/auth/**")
@@ -56,6 +58,18 @@ public class ApiGatewayApplication {
                         .path("/api/face/**")
                         .filters(filters -> filters.rewritePath("/api/face/(?<segment>.*)", "/api/v1/${segment}"))
                         .uri(faceServiceUrl))
+                .route("chat-service-health", route -> route
+                        .path("/api/chatbot/health")
+                        .and()
+                        .method(HttpMethod.GET)
+                        .filters(filters -> filters.setPath("/health"))
+                        .uri(chatServiceUrl))
+                .route("chat-service-message", route -> route
+                        .path("/api/chatbot/message")
+                        .and()
+                        .method(HttpMethod.POST)
+                        .filters(filters -> filters.setPath("/message"))
+                        .uri(chatServiceUrl))
                 .build();
     }
 }

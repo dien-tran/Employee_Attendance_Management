@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,11 +29,20 @@ public class AuthController {
     public ResponseEntity<ApiResponse<LoginResponse>> login(
             @Valid @RequestBody LoginRequest request,
             HttpServletResponse response) {
-
-        LoginResponse loginResponse = authService.login(request);
-        addAccessTokenCookie(response, loginResponse.getToken(), loginResponse.getExpiresIn());
-
-        return ResponseEntity.ok(ApiResponse.success("Login successful", loginResponse));
+        try {
+            LoginResponse loginResponse = authService.login(request);
+            addAccessTokenCookie(response, loginResponse.getToken(), loginResponse.getExpiresIn());
+            return ResponseEntity.ok(ApiResponse.success("Login successful", loginResponse));
+        } catch (RuntimeException ex) {
+            String message = ex.getMessage() == null ? "Authentication failed" : ex.getMessage();
+            if ("Invalid credentials".equals(message) || "Account is inactive".equals(message)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.error(401, message));
+            }
+            log.error("Unexpected login error", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error(500, "Internal server error"));
+        }
     }
 
     @PostMapping("/introspect")
