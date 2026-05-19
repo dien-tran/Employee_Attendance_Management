@@ -10,13 +10,9 @@ log/
 TestImage/
 testImage/
 
-# Models (Large files)
+# Model archives and partial downloads
 models/*.zip
 models/*.zip.download
-models/buffalo_l/*
-models/anti_spoof/*
-!models/buffalo_l/.gitkeep
-!models/anti_spoof/.gitkeep
 
 # IDEs
 .vscode/
