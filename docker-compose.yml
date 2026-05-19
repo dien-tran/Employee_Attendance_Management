@@ -85,6 +85,7 @@ services:
       SIGNED_KEY: ${SIGNED_KEY:?Set SIGNED_KEY in .env}
       AUTH_INTROSPECT_URL: ${AUTH_INTROSPECT_URL:-http://auth-service:8081/auth/introspect}
       FACE_SERVICE_URL: ${FACE_SERVICE_URL:-http://face-service:8083}
+      CHAT_SERVICE_URL: ${CHAT_SERVICE_URL:-http://chat-service:8000}
       GATEWAY_LOG_LEVEL: ${GATEWAY_LOG_LEVEL:-INFO}
     depends_on:
       eureka-service:
@@ -213,6 +214,52 @@ services:
         condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8083/health', timeout=3).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - attendance-network
+
+  chat-service:
+    build:
+      context: ./chat-service
+      dockerfile: Dockerfile
+    container_name: chat-service
+    ports:
+      - "${CHAT_SERVICE_HOST_PORT:-8000}:8000"
+    environment:
+      AUTH_DB_HOST: mysql-auth
+      AUTH_DB_PORT: 3306
+      AUTH_DB_USER: ${AUTH_DB_USERNAME:?Set AUTH_DB_USERNAME in .env}
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:?Set AUTH_DB_PASSWORD in .env}
+      AUTH_DB_NAME: ${AUTH_DB_NAME:-auth_db}
+      CORE_DB_HOST: mysql-core
+      CORE_DB_PORT: 3306
+      CORE_DB_USER: ${CORE_DB_USERNAME:?Set CORE_DB_USERNAME in .env}
+      CORE_DB_PASSWORD: ${CORE_DB_PASSWORD:?Set CORE_DB_PASSWORD in .env}
+      CORE_DB_NAME: ${CORE_DB_NAME:-core_db}
+      LLM_PROVIDER: ${LLM_PROVIDER:-chutes}
+      CHUTES_API_KEY: ${CHUTES_API_KEY:-}
+      CHUTES_MODEL: ${CHUTES_MODEL:-Qwen/Qwen3.6-27B-TEE}
+      CHUTES_BASE_URL: ${CHUTES_BASE_URL:-https://llm.chutes.ai/v1}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-4o-mini}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1/chat/completions}
+      ORCHESTRATOR_MODEL: ${ORCHESTRATOR_MODEL:-Qwen/Qwen3.6-27B-TEE}
+      CLASSIFIER_CONFIDENCE_THRESHOLD: ${CLASSIFIER_CONFIDENCE_THRESHOLD:-0.6}
+      HR_CHATBOT_LOG_LEVEL: ${HR_CHATBOT_LOG_LEVEL:-INFO}
+      HR_CHATBOT_LOG_COLOR: ${HR_CHATBOT_LOG_COLOR:-auto}
+      HR_CHATBOT_LOG_NAME_WIDTH: ${HR_CHATBOT_LOG_NAME_WIDTH:-28}
+      CHAT_SERVICE_BOOTSTRAP_ENABLED: ${CHAT_SERVICE_BOOTSTRAP_ENABLED:-true}
+      MOCK_DATA_SEED_ON_STARTUP: ${MOCK_DATA_SEED_ON_STARTUP:-true}
+      HR_ETL_SCHEDULE_SECONDS: ${HR_ETL_SCHEDULE_SECONDS:-300}
+    depends_on:
+      mysql-auth:
+        condition: service_healthy
+      mysql-core:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()"]
       interval: 30s
       timeout: 5s
       retries: 3
