@@ -43,6 +43,14 @@ docker compose down -v
 
 Lệnh này xóa volume DB local, chỉ dùng khi chấp nhận mất dữ liệu local.
 
+`LLM_PROVIDER` và key/model/base URL theo provider
+
+- `chat-service` hỗ trợ `LLM_PROVIDER=chutes|openrouter`.
+- Nếu dùng Chutes: cấu hình `CHUTES_API_KEY`, `CHUTES_MODEL`, `CHUTES_BASE_URL` (ví dụ `https://llm.chutes.ai/v1`).
+- Nếu dùng OpenRouter: cấu hình `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `OPENROUTER_BASE_URL`.
+- Nếu API key của provider đang chọn để trống, `chat-service` vẫn chạy nhưng các câu hỏi cần LLM sẽ trả lỗi dịch vụ.
+- Có thể cấu hình thêm `ORCHESTRATOR_MODEL`, `CLASSIFIER_CONFIDENCE_THRESHOLD` trong `.env`.
+
 `SEED_ADMIN_*`
 
 - `SEED_ADMIN_ENABLED=true` để `auth-service` tự tạo admin local khi DB chưa có admin.
@@ -71,6 +79,11 @@ Spring Boot không tự đọc file `.env` khi chạy trực tiếp bằng IDE. 
 
 Frontend container dùng Nginx template. Biến `FRONTEND_API_GATEWAY_URL` trong `.env` được truyền thành `API_GATEWAY_URL`, rồi Nginx render `front-end/nginx.conf` lúc container start.
 
+API Gateway dùng thêm `CHAT_SERVICE_URL` để route:
+
+- `POST /api/chatbot/message` -> `chat-service:/message`
+- `GET /api/chatbot/health` -> `chat-service:/health`
+
 Playwright trong `e2e-runner` đọc biến qua `process.env`, các biến này được truyền từ Compose.
 
 ## 4. Chạy toàn bộ hệ thống local
@@ -86,6 +99,12 @@ docker compose config --quiet
 ```
 
 Nếu command trên báo thiếu biến, mở `.env` và điền biến được nhắc.
+
+Sau khi stack lên, có thể kiểm tra nhanh health chatbot:
+
+```bash
+curl http://localhost:8080/api/chatbot/health
+```
 
 ## 5. Chạy E2E
 

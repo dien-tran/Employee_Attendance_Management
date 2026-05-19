@@ -90,5 +90,11 @@ Dưới đây là cấu trúc thiết kế các API Endpoints hoàn chỉnh (dà
 ### Group 6: AI Chatbot Assistant (`/api/chatbot`)
 - `POST /api/chatbot/message`
   - **Mục đích**: Xử lý tin nhắn hỏi đáp của người dùng liên quan đến nội quy nhân sự, giờ giấc và điểm danh cá nhân.
-  - **Request Payload**: `{ message: "hôm nay tôi có đi muộn không?", context: ["..."] }`
-  - **Response Payload**: `{ reply: "Bạn đã check-in lúc 09:15, muộn 15 phút so với quy định." }`
+  - **Auth**: Cần đăng nhập hợp lệ (đi qua API Gateway JWT filter).
+  - **Request Payload**: `{ message: "hôm nay tôi có đi muộn không?", context: "..." }`
+  - **Response Payload**:
+    - Success: `{ code: 200, message: "OK", result: { reply, selectedAgent, traceId } }`
+    - Error: `{ code: 403|503|500, message: "...", result: null }`
+- `GET /api/chatbot/health`
+  - **Mục đích**: Health check cho chatbot service.
+  - **Auth**: Public endpoint (không yêu cầu token).
