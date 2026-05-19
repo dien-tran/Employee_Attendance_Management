@@ -8,6 +8,8 @@ spring:
   cloud:
     gateway:
       httpclient:
+        connect-timeout: ${GATEWAY_CONNECT_TIMEOUT_MILLIS:30000}
+        response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:600s}
         websocket:
           max-frame-payload-length: ${GATEWAY_WEBSOCKET_MAX_FRAME_PAYLOAD_LENGTH:2097152}
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import requests
@@ -10,6 +10,7 @@ DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o-mini"
 DEFAULT_OPENROUTER_CHAT_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_CHUTES_MODEL = "Qwen/Qwen3.6-27B-TEE"
 DEFAULT_CHUTES_BASE_URL = "https://llm.chutes.ai/v1"
+DEFAULT_LLM_REQUEST_TIMEOUT_SECONDS = 180
 
 
 def error_payload(code: str, message: str, **extra: Any) -> dict[str, Any]:
@@ -33,6 +34,15 @@ def _normalize_chat_completions_url(raw_url: str) -> str:
     if normalized.endswith("/chat/completions"):
         return normalized
     return f"{normalized}/chat/completions"
+
+
+def resolve_llm_timeout_seconds() -> float:
+    raw_timeout = os.getenv("LLM_REQUEST_TIMEOUT_SECONDS", str(DEFAULT_LLM_REQUEST_TIMEOUT_SECONDS)).strip()
+    try:
+        timeout = float(raw_timeout)
+    except ValueError:
+        timeout = DEFAULT_LLM_REQUEST_TIMEOUT_SECONDS
+    return max(1.0, timeout)
 
 
 def resolve_llm_config(*, model_override: str | None = None) -> LLMConfig:
@@ -63,7 +73,7 @@ class OpenRouterClient:
     api_key: str
     model: str
     base_url: str
-    timeout_seconds: int = 45
+    timeout_seconds: float = field(default_factory=resolve_llm_timeout_seconds)
 
     def chat_once(self, prompt: str, temperature: float = 0) -> str:
         headers = {
