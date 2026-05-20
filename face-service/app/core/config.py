@@ -67,6 +67,14 @@ def _apply_env_overrides(config: dict[str, Any]) -> None:
     _set_env(config, "core_service", "internal_jwt_scope", "INTERNAL_JWT_REQUIRED_SCOPE")
     _set_env(config, "core_service", "request_timeout_sec", "CORE_ATTENDANCE_SYNC_TIMEOUT_SEC", int)
 
+    _set_env(config, "auth_service", "staff_lookup_url", "AUTH_STAFF_LOOKUP_URL")
+    _set_env(config, "auth_service", "face_status_url", "AUTH_FACE_STATUS_URL")
+    _set_env(config, "auth_service", "internal_jwt_signed_key", "INTERNAL_JWT_SIGNED_KEY")
+    _set_env(config, "auth_service", "internal_jwt_issuer", "INTERNAL_JWT_ISSUER")
+    _set_env(config, "auth_service", "internal_jwt_audience", "INTERNAL_JWT_AUTH_AUDIENCE")
+    _set_env(config, "auth_service", "internal_jwt_scope", "INTERNAL_JWT_FACE_STATUS_SCOPE")
+    _set_env(config, "auth_service", "request_timeout_sec", "AUTH_FACE_STATUS_TIMEOUT_SEC", int)
+
     _set_env(config, "runtime", "device", "RUNTIME_DEVICE")
     _set_env(config, "runtime", "gpu_id", "RUNTIME_GPU_ID", int)
 

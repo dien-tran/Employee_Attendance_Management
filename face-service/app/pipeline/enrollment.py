@@ -58,6 +58,12 @@ class VectorDBPort(Protocol):
         ...
 
 
+class StaffStatusPort(Protocol):
+    # Sau khi embedding lưu thành công, auth-service phải biết nhân viên đã có face.
+    def mark_has_face(self, staff_id: str) -> None:
+        ...
+
+
 @dataclass
 class EnrollmentSessionState:
     # total_frames là số frame hợp lệ schema đã đi vào pipeline trong WebSocket session.
@@ -89,6 +95,7 @@ class EnrollmentPipeline:
         quality_gate: QualityGatePort,
         embedding_service: EmbeddingPort,
         vector_db: VectorDBPort,
+        staff_status: StaffStatusPort,
         enrollment_config: Mapping[str, Any],
         model_config: Mapping[str, Any],
     ) -> None:
@@ -99,6 +106,7 @@ class EnrollmentPipeline:
         self.quality_gate = quality_gate
         self.embedding_service = embedding_service
         self.vector_db = vector_db
+        self.staff_status = staff_status
 
         # required_good_frames: số frame tốt cần thu thập, ví dụ 10.
         self.required_good_frames = int(enrollment_config["required_good_frames"])
@@ -306,6 +314,14 @@ class EnrollmentPipeline:
             raise vector_db_error(
                 "Không thể lưu embedding vào Qdrant",
                 details={"error": str(exc)},
+            ) from exc
+
+        try:
+            self.staff_status.mark_has_face(str(metadata["employee_id"]))
+        except Exception as exc:
+            raise internal_error(
+                "Đã lưu embedding nhưng không thể cập nhật has_face cho nhân viên",
+                details={"employee_id": metadata["employee_id"], "error": str(exc)},
             ) from exc
 
         self.state.completed = True

@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time
 from typing import Any, Literal, Mapping
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -44,6 +45,17 @@ class AttendanceRecord:
     date: date
     on_time: bool
     id: str | None = None
+
+
+@dataclass(frozen=True)
+class StaffRecord:
+    """Canonical staff snapshot returned by auth-service."""
+
+    staff_id: str
+    full_name: str | None = None
+    department: str | None = None
+    position: str | None = None
+    status: str | None = None
 
 
 @dataclass(frozen=True)
@@ -94,6 +106,7 @@ class AttendanceService:
         self,
         attendance_config: Mapping[str, Any],
         core_service_config: Mapping[str, Any],
+        auth_service_config: Mapping[str, Any] | None = None,
     ) -> None:
         self.timezone_name = str(attendance_config.get("timezone", "Asia/Ho_Chi_Minh"))
         self.checkin_deadline = parse_hhmm(str(attendance_config.get("checkin_deadline", "08:00")))
@@ -104,6 +117,14 @@ class AttendanceService:
         self.internal_jwt_audience = str(core_service_config.get("internal_jwt_audience", "core-service"))
         self.internal_jwt_scope = str(core_service_config.get("internal_jwt_scope", "attendance:sync"))
         self.request_timeout_sec = int(core_service_config.get("request_timeout_sec", 5))
+
+        auth_service_config = auth_service_config or {}
+        self.staff_lookup_url = str(auth_service_config.get("staff_lookup_url", ""))
+        self.auth_internal_jwt_signed_key = str(auth_service_config.get("internal_jwt_signed_key", ""))
+        self.auth_internal_jwt_issuer = str(auth_service_config.get("internal_jwt_issuer", "ai-service"))
+        self.auth_internal_jwt_audience = str(auth_service_config.get("internal_jwt_audience", "auth-service"))
+        self.auth_internal_jwt_scope = str(auth_service_config.get("internal_jwt_scope", "staff:face-status"))
+        self.auth_request_timeout_sec = int(auth_service_config.get("request_timeout_sec", 5))
 
     async def record_attendance(
         self,
@@ -127,6 +148,42 @@ class AttendanceService:
                 success=False,
                 message="Employee was not found for attendance recording.",
                 employee_id=employee_id,
+                attendance_type=attendance_type,
+                check_time=check_time,
+                check_date=check_date,
+                similarity_score=similarity_score,
+            )
+
+        try:
+            staff = await asyncio.to_thread(self._get_staff_record, employee_id)
+        except CoreAttendanceError as exc:
+            return self._error_decision(
+                exc,
+                employee_id,
+                attendance_type,
+                check_time,
+                check_date,
+                similarity_score,
+            )
+        except Exception as exc:
+            return AttendanceDecision(
+                code="DB_ERROR",
+                success=False,
+                message=f"Auth staff lookup failed: {exc}",
+                employee_id=employee_id,
+                attendance_type=attendance_type,
+                check_time=check_time,
+                check_date=check_date,
+                similarity_score=similarity_score,
+            )
+
+        if staff.status is not None and staff.status.upper() != "ACTIVE":
+            return AttendanceDecision(
+                code="EMPLOYEE_INACTIVE",
+                success=False,
+                message="Employee is inactive and cannot record attendance.",
+                employee_id=employee_id,
+                full_name=staff.full_name,
                 attendance_type=attendance_type,
                 check_time=check_time,
                 check_date=check_date,
@@ -171,6 +228,7 @@ class AttendanceService:
             success=True,
             message="Attendance recorded successfully.",
             employee_id=employee_id,
+            full_name=staff.full_name,
             attendance_type=attendance_type,
             check_time=check_time,
             check_date=check_date,
@@ -180,8 +238,51 @@ class AttendanceService:
             attendance=attendance,
         )
 
+    def _get_staff_record(self, staff_id: str) -> StaffRecord:
+        if not self.staff_lookup_url:
+            raise CoreAttendanceError("DB_ERROR", "Auth staff lookup URL is not configured")
+
+        token = self._create_internal_jwt(
+            signed_key=self.auth_internal_jwt_signed_key,
+            issuer=self.auth_internal_jwt_issuer,
+            audience=self.auth_internal_jwt_audience,
+            scope=self.auth_internal_jwt_scope,
+        )
+        encoded_staff_id = quote(staff_id, safe="")
+        url = self.staff_lookup_url.format(staff_id=encoded_staff_id)
+        request = Request(
+            url,
+            headers={
+                "Accept": "application/json",
+                "X-Internal-Token": f"Bearer {token}",
+            },
+            method="GET",
+        )
+
+        try:
+            with urlopen(request, timeout=self.auth_request_timeout_sec) as response:
+                body = response.read().decode("utf-8")
+                payload = json.loads(body) if body else {}
+        except HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            if exc.code == 404:
+                raise CoreAttendanceError("EMPLOYEE_NOT_FOUND", "Employee was not found in staff database") from exc
+            raise CoreAttendanceError.from_http_error(exc.code, body) from exc
+        except URLError as exc:
+            raise CoreAttendanceError("DB_ERROR", f"Auth staff API is unavailable: {exc}") from exc
+
+        staff = _staff_record_from_auth(payload.get("result"))
+        if staff is None:
+            raise CoreAttendanceError("EMPLOYEE_NOT_FOUND", "Employee was not found in staff database")
+        return staff
+
     def _post_sync_request(self, payload: Mapping[str, Any]) -> dict[str, Any]:
-        token = self._create_internal_jwt()
+        token = self._create_internal_jwt(
+            signed_key=self.internal_jwt_signed_key,
+            issuer=self.internal_jwt_issuer,
+            audience=self.internal_jwt_audience,
+            scope=self.internal_jwt_scope,
+        )
         request = Request(
             self.sync_url,
             data=json.dumps(payload).encode("utf-8"),
@@ -202,16 +303,22 @@ class AttendanceService:
         except URLError as exc:
             raise CoreAttendanceError("DB_ERROR", f"Core attendance API is unavailable: {exc}") from exc
 
-    def _create_internal_jwt(self) -> str:
-        if not self.internal_jwt_signed_key:
+    @staticmethod
+    def _create_internal_jwt(
+        signed_key: str,
+        issuer: str,
+        audience: str,
+        scope: str,
+    ) -> str:
+        if not signed_key:
             raise CoreAttendanceError("DB_ERROR", "Internal JWT signed key is not configured")
 
         now = int(time_module.time())
         header = {"alg": "HS512", "typ": "JWT"}
         claims = {
-            "iss": self.internal_jwt_issuer,
-            "aud": self.internal_jwt_audience,
-            "scope": self.internal_jwt_scope,
+            "iss": issuer,
+            "aud": audience,
+            "scope": scope,
             "iat": now,
             "exp": now + 900,
             "jti": str(uuid4()),
@@ -223,7 +330,7 @@ class AttendanceService:
             ]
         )
         signature = hmac.new(
-            self.internal_jwt_signed_key.encode("utf-8"),
+            signed_key.encode("utf-8"),
             signing_input.encode("ascii"),
             hashlib.sha512,
         ).digest()
@@ -320,6 +427,27 @@ def _attendance_record_from_core(value: Any) -> AttendanceRecord | None:
         )
     except (KeyError, TypeError, ValueError):
         return None
+
+
+def _staff_record_from_auth(value: Any) -> StaffRecord | None:
+    if not isinstance(value, Mapping):
+        return None
+
+    staff_id = value.get("staffId")
+    if not isinstance(staff_id, str) or not staff_id.strip():
+        return None
+
+    full_name = value.get("name")
+    department = value.get("department")
+    position = value.get("position")
+    status = value.get("status")
+    return StaffRecord(
+        staff_id=staff_id.strip(),
+        full_name=full_name.strip() if isinstance(full_name, str) and full_name.strip() else None,
+        department=department.strip() if isinstance(department, str) and department.strip() else None,
+        position=position.strip() if isinstance(position, str) and position.strip() else None,
+        status=status.strip() if isinstance(status, str) and status.strip() else None,
+    )
 
 
 def _base64url_json(value: Mapping[str, Any]) -> str:

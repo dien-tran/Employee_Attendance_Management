@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from app.services.detection import FaceDetector
     from app.services.embedding import EmbeddingService
     from app.services.preprocessing import QualityGateService
+    from app.services.staff_status import StaffStatusService
     from app.services.vector_db import VectorDBService
 
 
@@ -45,6 +46,9 @@ class ServiceContainer:
     # vector_db giữ Qdrant client config. Collection chỉ được ensure khi complete enrollment.
     vector_db: VectorDBService
 
+    # staff_status đồng bộ cờ has_face về auth-service sau enrollment thành công.
+    staff_status: StaffStatusService
+
 
 @lru_cache(maxsize=1)
 def get_app_config() -> dict[str, Any]:
@@ -71,6 +75,7 @@ def get_service_container() -> ServiceContainer:
     from app.services.anti_spoofing import AntiSpoofingService
     from app.services.detection import FaceDetector
     from app.services.embedding import EmbeddingService
+    from app.services.staff_status import StaffStatusService
     from app.services.preprocessing import QualityGateService
     from app.services.vector_db import VectorDBService
 
@@ -83,6 +88,7 @@ def get_service_container() -> ServiceContainer:
     quality_gate = QualityGateService(config["quality"])
     embedding_service = EmbeddingService(config["qdrant"])
     vector_db = VectorDBService(config["qdrant"])
+    staff_status = StaffStatusService(config["auth_service"])
 
     return ServiceContainer(
         config=config,
@@ -92,6 +98,7 @@ def get_service_container() -> ServiceContainer:
         quality_gate=quality_gate,
         embedding_service=embedding_service,
         vector_db=vector_db,
+        staff_status=staff_status,
     )
 
 
@@ -105,6 +112,7 @@ def get_attendance_service() -> AttendanceService:
     return AttendanceService(
         attendance_config=config["attendance"],
         core_service_config=config["core_service"],
+        auth_service_config=config["auth_service"],
     )
 
 
@@ -126,6 +134,7 @@ def create_enrollment_pipeline() -> EnrollmentPipeline:
         quality_gate=services.quality_gate,
         embedding_service=services.embedding_service,
         vector_db=services.vector_db,
+        staff_status=services.staff_status,
         enrollment_config=services.config["enrollment"],
         model_config=services.config["model"],
     )

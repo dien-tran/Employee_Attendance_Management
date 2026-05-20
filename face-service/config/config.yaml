@@ -54,6 +54,16 @@ core_service:
   internal_jwt_scope: "attendance:sync"
   request_timeout_sec: 5
 
+# ── Auth Service Internal Sync ──
+auth_service:
+  staff_lookup_url: "http://localhost:8081/api/internal/staff/{staff_id}"
+  face_status_url: "http://localhost:8081/api/internal/staff/{staff_id}/face-status"
+  internal_jwt_signed_key: ""
+  internal_jwt_issuer: "ai-service"
+  internal_jwt_audience: "auth-service"
+  internal_jwt_scope: "staff:face-status"
+  request_timeout_sec: 5
+
 # ── Databases ──
 qdrant:
   host: "localhost"
