@@ -20,7 +20,6 @@ export default function AdminEmployeesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedStaff, setSelectedStaff] = useState<StaffDTO | null>(null)
-  const [faceRegistration, setFaceRegistration] = useState<Record<string, boolean>>({})
   const [errorMsg, setErrorMsg] = useState("")
   const [newStaff, setNewStaff] = useState<StaffCreationRequest>({
     name: "", email: "", dob: "", department: "", position: "", phone: "",
@@ -83,8 +82,27 @@ export default function AdminEmployeesPage() {
     setNewStaff((prev) => ({ ...prev, [field]: value }))
   }
 
-  const updateFaceRegistration = (staffId: string, registered: boolean) => {
-    setFaceRegistration((prev) => ({ ...prev, [staffId]: registered }))
+  const updateFaceRegistration = async (staffId: string, registered: boolean) => {
+    if (registered) {
+      setStaffList((prev) => prev.map((s) => (s.id === staffId ? { ...s, hasFace: true } : s)))
+      setSelectedStaff((prev) => (prev?.id === staffId ? { ...prev, hasFace: true } : prev))
+      return
+    }
+
+    try {
+      const updated = await staffService.updateFaceStatus(staffId, false)
+      const hasFace = Boolean(updated.hasFace)
+      setStaffList((prev) => prev.map((s) => (s.id === staffId ? { ...s, hasFace } : s)))
+      setSelectedStaff((prev) => (prev?.id === staffId ? { ...prev, hasFace } : prev))
+    } catch (err) {
+      console.error("Failed to update face status:", err)
+      toast({
+        title: "Unable to update face status",
+        description: "The employee face status was not saved to the database.",
+        variant: "destructive",
+      })
+      throw err
+    }
   }
 
   const openProfileFromKeyboard = (event: KeyboardEvent, staff: StaffDTO) => {
@@ -163,10 +181,10 @@ export default function AdminEmployeesPage() {
                           <p className="text-sm text-muted-foreground">{staff.position || "N/A"}</p>
                           <p className="text-xs text-muted-foreground mt-1">{staff.department} - {staff.staffId}</p>
                           <span className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-                            faceRegistration[staff.id] ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                            staff.hasFace ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
                           }`}>
                             <UserRound className="h-3.5 w-3.5" />
-                            {faceRegistration[staff.id] ? "Face registered" : "Face pending"}
+                            {staff.hasFace ? "Face registered" : "Face pending"}
                           </span>
                         </div>
                       </div>
@@ -235,10 +253,10 @@ export default function AdminEmployeesPage() {
                           </td>
                           <td className="px-4 py-3">
                             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                              faceRegistration[staff.id] ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                              staff.hasFace ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
                             }`}>
                               <UserRound className="h-3.5 w-3.5" />
-                              {faceRegistration[staff.id] ? "Registered" : "Pending"}
+                              {staff.hasFace ? "Registered" : "Pending"}
                             </span>
                           </td>
                           <td className="px-4 py-3">
@@ -349,7 +367,7 @@ export default function AdminEmployeesPage() {
       {selectedStaff && (
         <AdminEmployeeProfileModal
           staff={selectedStaff}
-          faceRegistered={Boolean(faceRegistration[selectedStaff.id])}
+          faceRegistered={Boolean(selectedStaff.hasFace)}
           onClose={() => setSelectedStaff(null)}
           onFaceRegisteredChange={updateFaceRegistration}
         />

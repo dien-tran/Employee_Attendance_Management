@@ -45,6 +45,19 @@ export interface StaffDTO {
   bankName: string
   dob: string
   role: 'ADMIN' | 'USER'
+  hasFace: boolean
+}
+
+type StaffApiDTO = Omit<StaffDTO, 'hasFace'> & {
+  hasFace?: boolean
+  has_face?: boolean
+}
+
+function normalizeStaff(staff: StaffApiDTO): StaffDTO {
+  return {
+    ...staff,
+    hasFace: Boolean(staff.hasFace ?? staff.has_face),
+  }
 }
 
 export const staffService = {
@@ -53,8 +66,8 @@ export const staffService = {
    * GET /api/staff
    */
   async getAll(): Promise<StaffDTO[]> {
-    const response = await apiClient.get<StaffDTO[]>('/api/staff')
-    return response.result
+    const response = await apiClient.get<StaffApiDTO[]>('/api/staff')
+    return response.result.map(normalizeStaff)
   },
 
   /**
@@ -62,8 +75,8 @@ export const staffService = {
    * POST /api/staff
    */
   async create(data: StaffCreationRequest): Promise<StaffDTO> {
-    const response = await apiClient.post<StaffDTO>('/api/staff', data)
-    return response.result
+    const response = await apiClient.post<StaffApiDTO>('/api/staff', data)
+    return normalizeStaff(response.result)
   },
 
   /**
@@ -71,8 +84,8 @@ export const staffService = {
    * PUT /api/staff/{id}
    */
   async update(id: string, data: StaffUpdateRequest): Promise<StaffDTO> {
-    const response = await apiClient.put<StaffDTO>(`/api/staff/${id}`, data)
-    return response.result
+    const response = await apiClient.put<StaffApiDTO>(`/api/staff/${id}`, data)
+    return normalizeStaff(response.result)
   },
 
   /**
@@ -80,8 +93,17 @@ export const staffService = {
    * PATCH /api/staff/{id}/status?status={status}
    */
   async updateStatus(id: string, status: 'ACTIVE' | 'INACTIVE'): Promise<StaffDTO> {
-    const response = await apiClient.patch<StaffDTO>(`/api/staff/${id}/status?status=${status}`)
-    return response.result
+    const response = await apiClient.patch<StaffApiDTO>(`/api/staff/${id}/status?status=${status}`)
+    return normalizeStaff(response.result)
+  },
+
+  /**
+   * Cập nhật trạng thái dữ liệu khuôn mặt của nhân viên
+   * PATCH /api/staff/{id}/face-status?hasFace={hasFace}
+   */
+  async updateFaceStatus(id: string, hasFace: boolean): Promise<StaffDTO> {
+    const response = await apiClient.patch<StaffApiDTO>(`/api/staff/${id}/face-status?hasFace=${hasFace}`)
+    return normalizeStaff(response.result)
   },
 
   /**
@@ -89,7 +111,7 @@ export const staffService = {
    * GET /api/staff/{id}
    */
   async getById(id: string): Promise<StaffDTO> {
-    const response = await apiClient.get<StaffDTO>(`/api/staff/${id}`)
-    return response.result
+    const response = await apiClient.get<StaffApiDTO>(`/api/staff/${id}`)
+    return normalizeStaff(response.result)
   },
 }

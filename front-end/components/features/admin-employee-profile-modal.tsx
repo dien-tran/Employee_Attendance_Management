@@ -36,7 +36,7 @@ interface AdminEmployeeProfileModalProps {
   staff: StaffDTO
   faceRegistered: boolean
   onClose: () => void
-  onFaceRegisteredChange: (staffId: string, registered: boolean) => void
+  onFaceRegisteredChange: (staffId: string, registered: boolean) => Promise<void> | void
 }
 
 type EnrollmentPhase = "idle" | "connecting" | "collecting" | "complete" | "error"
@@ -71,7 +71,7 @@ export function AdminEmployeeProfileModal({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const socketRef = useRef<WebSocket | null>(null)
-  const sendIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const sendIntervalRef = useRef<number | null>(null)
   const manualCloseRef = useRef(false)
   const [cameraError, setCameraError] = useState("")
   const [cameraReady, setCameraReady] = useState(false)
@@ -202,7 +202,7 @@ export function AdminEmployeeProfileModal({
       sendIntervalRef.current = window.setInterval(() => sendEnrollmentFrame(socket), 300)
     }
 
-    socket.onmessage = (event) => {
+    socket.onmessage = async (event) => {
       let response: EnrollmentResponse
       try {
         response = JSON.parse(event.data) as EnrollmentResponse
@@ -239,12 +239,17 @@ export function AdminEmployeeProfileModal({
       stopSending()
 
       if (response.status === "ENROLLMENT_COMPLETE") {
-        setEnrollmentPhase("complete")
-        setEnrollmentMessage(response.message || "Face registration completed")
-        setAcceptedCount(response.data?.num_frames_used ?? response.accepted_count ?? acceptedCount)
-        setRequiredCount(response.data?.num_frames_used ?? response.required_count ?? requiredCount)
-        setLivenessScore(response.data?.anti_spoof_score_avg ?? response.anti_spoof_score ?? null)
-        onFaceRegisteredChange(staff.id, true)
+        try {
+          await onFaceRegisteredChange(staff.id, true)
+          setEnrollmentPhase("complete")
+          setEnrollmentMessage(response.message || "Face registration completed")
+          setAcceptedCount(response.data?.num_frames_used ?? response.accepted_count ?? acceptedCount)
+          setRequiredCount(response.data?.num_frames_used ?? response.required_count ?? requiredCount)
+          setLivenessScore(response.data?.anti_spoof_score_avg ?? response.anti_spoof_score ?? null)
+        } catch {
+          setEnrollmentPhase("error")
+          setEnrollmentMessage("Face registered, but unable to update database status")
+        }
       } else {
         setEnrollmentPhase("error")
         setEnrollmentMessage(response.message || response.reason || "Unable to register face")
@@ -278,15 +283,20 @@ export function AdminEmployeeProfileModal({
     }
   }
 
-  const removeFace = () => {
+  const removeFace = async () => {
     closeEnrollmentSocket(true)
-    onFaceRegisteredChange(staff.id, false)
-    setEnrollmentPhase("idle")
-    setEnrollmentMessage("Face profile removed")
-    setAcceptedCount(0)
-    setRequiredCount(0)
-    setLivenessScore(null)
-    setFaceBox(null)
+    try {
+      await onFaceRegisteredChange(staff.id, false)
+      setEnrollmentPhase("idle")
+      setEnrollmentMessage("Face profile removed")
+      setAcceptedCount(0)
+      setRequiredCount(0)
+      setLivenessScore(null)
+      setFaceBox(null)
+    } catch {
+      setEnrollmentPhase("error")
+      setEnrollmentMessage("Unable to update database status")
+    }
   }
 
   return (

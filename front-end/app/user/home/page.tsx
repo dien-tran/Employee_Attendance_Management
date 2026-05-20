@@ -1,33 +1,121 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Chatbot } from '@/components/features/chatbot'
 import { EmployeeAvatar } from '@/components/features/employee-avatar'
 import { MotionPage, MotionSection, StaggerContainer, StaggerItem, MotionCard, MotionButton } from '@/components/features/motion'
-import { employees, attendanceRecords, getCurrentEmployee } from "@/lib/mock-data"
+import { attendanceService, type AttendanceDTO } from "@/services/attendance.service"
+import { profileService } from "@/services/profile.service"
+import { useAuthStore } from "@/store/authStore"
 import { Camera, CalendarDays, Clock, TrendingUp, CheckCircle2, ArrowRight } from "lucide-react"
 import Link from "next/link"
 
 export default function EmployeeHomePage() {
-  const currentEmployee = getCurrentEmployee()
+  const { user, setUser } = useAuthStore()
   const [currentTime, setCurrentTime] = useState(new Date())
-  const [isCheckedIn, setIsCheckedIn] = useState(false)
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceDTO[]>([])
+  const [profileLoaded, setProfileLoaded] = useState(false)
+  const [attendanceLoading, setAttendanceLoading] = useState(true)
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
 
-  // Get employee's recent attendance
-  const myRecords = attendanceRecords
-    .filter((r) => r.employeeId === currentEmployee.id)
-    .slice(0, 5)
+  useEffect(() => {
+    let isMounted = true
 
-  // Calculate stats
-  const totalDays = myRecords.length
-  const presentDays = myRecords.filter((r) => r.status === "present").length
-  const lateDays = myRecords.filter((r) => r.status === "late").length
-  const attendanceRate = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0
+    async function loadProfile() {
+      if (!user || profileLoaded) {
+        return
+      }
+
+      try {
+        const profile = await profileService.getMe()
+
+        if (!isMounted) {
+          return
+        }
+
+        setUser({
+          ...user,
+          id: profile.id,
+          staffId: profile.staffId,
+          name: profile.name,
+          email: profile.email,
+          role: profile.role,
+          department: profile.department,
+          position: profile.position,
+          phone: profile.phone,
+        })
+        setProfileLoaded(true)
+      } catch {
+        // Keep the login payload if the profile endpoint is temporarily unavailable.
+      }
+    }
+
+    loadProfile()
+
+    return () => {
+      isMounted = false
+    }
+  }, [profileLoaded, setUser, user])
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadAttendance() {
+      setAttendanceLoading(true)
+
+      try {
+        const endDate = toDateInputValue(new Date())
+        const startDate = toDateInputValue(addDays(new Date(), -30))
+        const records = await attendanceService.getMyAttendance(startDate, endDate)
+
+        if (isMounted) {
+          setAttendanceRecords(records)
+        }
+      } catch {
+        if (isMounted) {
+          setAttendanceRecords([])
+        }
+      } finally {
+        if (isMounted) {
+          setAttendanceLoading(false)
+        }
+      }
+    }
+
+    loadAttendance()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const currentEmployee = {
+    name: user?.name || "Employee",
+    email: user?.email || "-",
+    role: formatRole(user?.role),
+    department: user?.department || "Unassigned",
+    position: user?.position || formatRole(user?.role),
+    image: user?.image,
+    id: user?.staffId || user?.id || "-",
+  }
+
+  const recentRecords = useMemo(
+    () =>
+      [...attendanceRecords]
+        .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+        .slice(0, 5),
+    [attendanceRecords]
+  )
+
+  const totalEvents = attendanceRecords.length
+  const onTimeEvents = attendanceRecords.filter((r) => r.onTime === true).length
+  const lateEvents = attendanceRecords.filter((r) => r.onTime === false).length
+  const attendanceRate = totalEvents > 0 ? Math.round((onTimeEvents / totalEvents) * 100) : 0
+  const isCheckedIn = isCurrentlyCheckedIn(attendanceRecords)
 
   return (
     <>
@@ -44,10 +132,10 @@ export default function EmployeeHomePage() {
               />
               <div>
                 <h1 className="text-2xl font-bold text-foreground lg:text-3xl">
-                  Welcome back, {currentEmployee.name.split(" ")[0]}!
+                  Welcome back, {getFirstName(currentEmployee.name)}!
                 </h1>
                 <p className="text-muted-foreground">
-                  {currentEmployee.role} - {currentEmployee.department}
+                  {currentEmployee.position} - {currentEmployee.department}
                 </p>
               </div>
             </div>
@@ -112,7 +200,7 @@ export default function EmployeeHomePage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">{attendanceRate}%</p>
-                  <p className="text-sm text-muted-foreground">Attendance Rate</p>
+                  <p className="text-sm text-muted-foreground">On-time Rate</p>
                 </div>
               </div>
             </MotionCard>
@@ -124,8 +212,8 @@ export default function EmployeeHomePage() {
                   <Clock className="h-6 w-6 text-scanner" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{lateDays}</p>
-                  <p className="text-sm text-muted-foreground">Late Days</p>
+                  <p className="text-2xl font-bold text-foreground">{lateEvents}</p>
+                  <p className="text-sm text-muted-foreground">Late Events</p>
                 </div>
               </div>
             </MotionCard>
@@ -140,7 +228,7 @@ export default function EmployeeHomePage() {
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">Recent Attendance</h2>
-                  <p className="text-sm text-muted-foreground">Your last 5 check-ins</p>
+                  <p className="text-sm text-muted-foreground">Your last 5 attendance events</p>
                 </div>
                 <Link href="/user/attendance">
                   <MotionButton variant="ghost" size="sm">
@@ -151,39 +239,37 @@ export default function EmployeeHomePage() {
             </StaggerItem>
             
             <div className="space-y-3">
-              {myRecords.length > 0 ? (
-                myRecords.map((record) => (
+              {attendanceLoading ? (
+                <StaggerItem>
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <CalendarDays className="h-12 w-12 text-muted-foreground/50 mb-3" />
+                    <p className="text-muted-foreground">Loading attendance records...</p>
+                  </div>
+                </StaggerItem>
+              ) : recentRecords.length > 0 ? (
+                recentRecords.map((record) => (
                   <StaggerItem key={record.id}>
                     <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-foreground">
-                          {new Date(record.date).toLocaleDateString("en-US", {
-                            weekday: "long",
-                            month: "short",
-                            day: "numeric",
-                          })}
+                          {formatDate(record.date)}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {record.checkIn ? `${record.checkIn} - ${record.checkOut || "Still working"}` : "No check-in"}
+                          {formatAttendanceType(record.type)} at {formatTime(record.timestamp)}
                         </p>
                       </div>
                       <div className="text-right">
                         <span
                           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            record.status === "present"
+                            record.onTime === true
                               ? "bg-success/10 text-success"
-                              : record.status === "late"
+                              : record.onTime === false
                               ? "bg-scanner/10 text-scanner"
-                              : record.status === "absent"
-                              ? "bg-destructive/10 text-destructive"
                               : "bg-muted text-muted-foreground"
                           }`}
                         >
-                          {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                          {formatAttendanceStatus(record)}
                         </span>
-                        {record.hoursWorked && (
-                          <p className="text-xs text-muted-foreground mt-1">{record.hoursWorked}h worked</p>
-                        )}
                       </div>
                     </div>
                   </StaggerItem>
@@ -210,7 +296,7 @@ export default function EmployeeHomePage() {
                   size="lg"
                 />
                 <h3 className="mt-4 text-lg font-semibold text-foreground">{currentEmployee.name}</h3>
-                <p className="text-sm text-muted-foreground">{currentEmployee.role}</p>
+                <p className="text-sm text-muted-foreground">{currentEmployee.position}</p>
                 <p className="text-xs text-muted-foreground mt-1">{currentEmployee.department}</p>
               </div>
             </StaggerItem>
@@ -249,4 +335,67 @@ export default function EmployeeHomePage() {
       <Chatbot />
     </>
   )
+}
+
+function getFirstName(name: string) {
+  return name.trim().split(/\s+/)[0] || "there"
+}
+
+function formatRole(role?: "ADMIN" | "USER") {
+  if (role === "ADMIN") {
+    return "System Administrator"
+  }
+
+  if (role === "USER") {
+    return "Employee"
+  }
+
+  return "Employee"
+}
+
+function isCurrentlyCheckedIn(records: AttendanceDTO[]) {
+  const today = toDateInputValue(new Date())
+  const latestTodayRecord = records
+    .filter((record) => record.date === today)
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0]
+
+  return latestTodayRecord?.type === "CHECK_IN"
+}
+
+function addDays(date: Date, days: number) {
+  const nextDate = new Date(date)
+  nextDate.setDate(nextDate.getDate() + days)
+  return nextDate
+}
+
+function toDateInputValue(date: Date) {
+  return date.toISOString().split("T")[0]
+}
+
+function formatDate(value: string) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  })
+}
+
+function formatTime(value: string) {
+  return value.slice(11, 16)
+}
+
+function formatAttendanceType(value: AttendanceDTO["type"]) {
+  return value === "CHECK_IN" ? "Check in" : "Check out"
+}
+
+function formatAttendanceStatus(record: AttendanceDTO) {
+  if (record.onTime === true) {
+    return "On Time"
+  }
+
+  if (record.onTime === false) {
+    return "Late"
+  }
+
+  return "Recorded"
 }

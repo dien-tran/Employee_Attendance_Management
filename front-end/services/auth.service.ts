@@ -50,6 +50,7 @@ export interface StaffResponseDTO {
   bankName: string
   dob: string
   role: 'ADMIN' | 'USER'
+  hasFace: boolean
 }
 
 export const authService = {
