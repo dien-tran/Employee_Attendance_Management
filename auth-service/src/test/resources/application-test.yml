@@ -27,6 +27,12 @@ app:
     signed-key: test-only-signing-key-with-at-least-sixty-four-bytes-for-hs512-tests
     access-token-ttl-seconds: 86400
     sliding-session-ttl-seconds: 86400
+  internal:
+    jwt:
+      signed-key: test-internal-signing-key-for-hs512-must-be-at-least-64-bytes-long
+      issuer: ai-service
+      audience: auth-service
+      required-scope: staff:face-status
 
 logging:
   level:
