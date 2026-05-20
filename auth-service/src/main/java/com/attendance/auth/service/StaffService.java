@@ -104,6 +104,13 @@ public class StaffService {
         return mapToResponse(staff);
     }
 
+    public StaffResponse getByStaffId(String staffId) {
+        Staff staff = staffRepository.findByStaffId(staffId)
+                .orElseThrow(() -> new RuntimeException("Staff not found with staffId: " + staffId));
+
+        return mapToResponse(staff);
+    }
+
     @Transactional
     public StaffResponse updateProfile(UUID userId, ProfileUpdateRequest request) {
         Staff staff = staffRepository.findById(userId)
@@ -159,6 +166,30 @@ public class StaffService {
         return mapToResponse(savedStaff);
     }
 
+    @Transactional
+    public StaffResponse changeFaceStatus(UUID id, boolean hasFace) {
+        Staff staff = staffRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Staff not found with ID: " + id));
+
+        staff.setHasFace(hasFace);
+        Staff savedStaff = staffRepository.save(staff);
+        log.info("Staff face status changed: id={}, staffId={}, hasFace={}", id, staff.getStaffId(), hasFace);
+
+        return mapToResponse(savedStaff);
+    }
+
+    @Transactional
+    public StaffResponse changeFaceStatusByStaffId(String staffId, boolean hasFace) {
+        Staff staff = staffRepository.findByStaffId(staffId)
+                .orElseThrow(() -> new RuntimeException("Staff not found with staffId: " + staffId));
+
+        staff.setHasFace(hasFace);
+        Staff savedStaff = staffRepository.save(staff);
+        log.info("Staff face status changed: staffId={}, hasFace={}", staffId, hasFace);
+
+        return mapToResponse(savedStaff);
+    }
+
     /**
      * Sinh staff_id duy nhất theo format "NV" + 6 chữ số.
      * Tìm số thứ tự lớn nhất hiện có trong DB rồi tăng lên 1.
@@ -210,6 +241,7 @@ public class StaffService {
                 .bankName(staff.getBankName())
                 .role(staff.getRole())
                 .status(staff.getStatus())
+                .hasFace(Boolean.TRUE.equals(staff.getHasFace()))
                 .build();
     }
 }

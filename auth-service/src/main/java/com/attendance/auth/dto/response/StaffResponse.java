@@ -43,4 +43,6 @@ public class StaffResponse {
     private LocalDate dob;
 
     private String role;
+
+    private Boolean hasFace;
 }

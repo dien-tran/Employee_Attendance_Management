@@ -119,4 +119,23 @@ public class StaffController {
         return ResponseEntity.ok(ApiResponse.success("Staff status updated successfully", updatedStaff));
     }
 
+    /**
+     * API cập nhật trạng thái đăng ký khuôn mặt của nhân viên.
+     * Yêu cầu quyền: ROLE_ADMIN
+     */
+    @PatchMapping("/{id}/face-status")
+    public ResponseEntity<ApiResponse<StaffResponse>> changeFaceStatus(
+            @RequestHeader(value = "X-User-Roles", required = false) String roles,
+            @PathVariable UUID id,
+            @RequestParam boolean hasFace) {
+
+        if (roles == null || !roles.contains("ADMIN")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.error(403, "Access denied: ADMIN role required"));
+        }
+
+        StaffResponse updatedStaff = staffService.changeFaceStatus(id, hasFace);
+        return ResponseEntity.ok(ApiResponse.success("Staff face status updated successfully", updatedStaff));
+    }
+
 }
