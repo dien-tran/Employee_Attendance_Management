@@ -1,0 +1,11 @@
+# Bỏ qua các file build và dependencies
+target/
+node_modules/
+.next/
+dist/
+
+# Bỏ qua thư mục tài liệu nháp cũ
+docs/
+
+# Bỏ qua thư mục lưu trữ đã hoàn thành
+memory_bank/archive.json

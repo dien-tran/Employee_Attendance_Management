@@ -1,0 +1,37 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.reactive.ReactiveSecurityAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.reactive.ReactiveUserDetailsServiceAutoConfiguration
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: true
+
+app:
+  jwt:
+    signed-key: ${SIGNED_KEY}
+  auth-service:
+    introspect-url: ${AUTH_INTROSPECT_URL:http://localhost:8081/auth/introspect}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+
+logging:
+  level:
+    com.attendance.gateway: ${GATEWAY_LOG_LEVEL:INFO}
+    org.springframework.cloud.gateway: INFO

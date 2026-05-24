@@ -1,0 +1,49 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      httpclient:
+        connect-timeout: ${GATEWAY_CONNECT_TIMEOUT_MILLIS:30000}
+        response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:600s}
+        websocket:
+          max-frame-payload-length: ${GATEWAY_WEBSOCKET_MAX_FRAME_PAYLOAD_LENGTH:2097152}
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.reactive.ReactiveSecurityAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.reactive.ReactiveUserDetailsServiceAutoConfiguration
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: true
+
+app:
+  jwt:
+    signed-key: ${SIGNED_KEY}
+  auth-service:
+    introspect-url: ${AUTH_INTROSPECT_URL:http://localhost:8081/auth/introspect}
+  face-service:
+    url: ${FACE_SERVICE_URL:http://localhost:8083}
+  chat-service:
+    url: ${CHAT_SERVICE_URL:http://localhost:8000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+
+logging:
+  level:
+    com.attendance.gateway: ${GATEWAY_LOG_LEVEL:INFO}
+    org.springframework.cloud.gateway: INFO

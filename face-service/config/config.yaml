@@ -1,0 +1,77 @@
+# ── AI Models ──
+model:
+  insightface_model_name: "buffalo_l"
+  insightface_root: "."  # FaceAnalysis expects ./models/<model_name> under this root
+  det_size: [640, 640]
+  det_candidate_threshold: 0.3
+  det_score_threshold: 0.5
+  det_min_bbox_inside_ratio: 0.92
+  anti_spoof_model_dir: "./models/anti_spoof"
+  anti_spoof_decision_mode: "advisory"  # "strict" blocks low liveness; "advisory" logs score but lets enrollment continue
+  anti_spoof_threshold: 0.5
+  anti_spoof_color_space: "bgr"  # "bgr" matches OpenCV/upstream; try "rgb" only for calibration debug
+  anti_spoof_debug_save_crops: false
+  anti_spoof_debug_dir: "./log/crop"
+
+# ── Quality Gate ──
+quality:
+  blur_threshold: 100.0
+  min_brightness: 40
+  max_brightness: 250
+  min_face_ratio: 0.05
+  max_yaw_deg: 20
+  max_pitch_deg: 20
+
+# ── Enrollment ──
+enrollment:
+  required_good_frames: 10
+  max_total_frames: 50
+  frame_interval_ms: 300
+
+# ── Check-in / Check-out ──
+checkin:
+  similarity_threshold: 0.55
+  high_confidence_threshold: 0.75
+  required_consecutive_high: 2
+  required_low_votes: 3
+  session_timeout_sec: 30
+  frame_interval_ms: 400
+  enforce_liveness: false  # Keep anti-spoofing advisory until model/calibration is reliable.
+
+# ── Attendance Rules ──
+attendance:
+  checkin_deadline: "08:00"
+  checkout_start: "16:30"
+  timezone: "Asia/Ho_Chi_Minh"
+  require_checkin_before_checkout: true
+
+# ── Core Service Internal Sync ──
+core_service:
+  attendance_sync_url: "http://localhost:8082/api/internal/attendance/sync"
+  internal_jwt_signed_key: ""
+  internal_jwt_issuer: "ai-service"
+  internal_jwt_audience: "core-service"
+  internal_jwt_scope: "attendance:sync"
+  request_timeout_sec: 5
+
+# ── Auth Service Internal Sync ──
+auth_service:
+  staff_lookup_url: "http://localhost:8081/api/internal/staff/{staff_id}"
+  face_status_url: "http://localhost:8081/api/internal/staff/{staff_id}/face-status"
+  internal_jwt_signed_key: ""
+  internal_jwt_issuer: "ai-service"
+  internal_jwt_audience: "auth-service"
+  internal_jwt_scope: "staff:face-status"
+  request_timeout_sec: 5
+
+# ── Databases ──
+qdrant:
+  host: "localhost"
+  port: 6333
+  collection_name: "face_embeddings"
+  embedding_dim: 512
+
+# ── Runtime ──
+runtime:
+  device: "cpu"  # "cpu" or "gpu"; default CPU works on every machine
+  gpu_id: 0      # Used only when device is "gpu"; maps to InsightFace ctx_id

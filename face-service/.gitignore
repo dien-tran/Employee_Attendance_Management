@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+.tmp/
+debug/
+log/
+TestImage/
+testImage/
+
+# Model archives and partial downloads
+models/*.zip
+models/*.zip.download
+
+# IDEs
+.vscode/
+.idea/
+
+# Frontend build artifacts
+frontend/.next/
+frontend/out/
+
+# OS
+.DS_Store
+Thumbs.db

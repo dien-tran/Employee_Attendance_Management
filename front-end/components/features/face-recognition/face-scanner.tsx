@@ -122,7 +122,7 @@ export function FaceScanner({ onCheckIn, className }: FaceScannerProps) {
             playsInline 
             muted 
             className={cn(
-              "absolute inset-0 w-full h-full object-cover transition-opacity",
+              "absolute inset-0 h-full w-full object-cover object-center transition-opacity",
               scanState === "success" ? "opacity-30" : "opacity-100",
               scanState === "error" ? "opacity-30 grayscale" : ""
             )}

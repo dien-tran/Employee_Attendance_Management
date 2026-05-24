@@ -1,0 +1,49 @@
+server:
+  port: ${SERVER_PORT:8082}
+
+spring:
+  application:
+    name: core-service
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:core_db}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=${DB_TIMEZONE:Asia/Ho_Chi_Minh}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: true
+
+# KHÔNG có app.jwt.signed-key - Core Service không xử lý JWT login của user/admin.
+# Chỉ đọc X-User-Id và X-User-Roles từ Header do API Gateway inject.
+# app.internal.jwt.* dùng riêng cho luồng M2M AI service -> core-service.
+app:
+  internal:
+    jwt:
+      signed-key: ${INTERNAL_JWT_SIGNED_KEY:}
+      issuer: ${INTERNAL_JWT_ISSUER:ai-service}
+      audience: ${INTERNAL_JWT_AUDIENCE:core-service}
+      required-scope: ${INTERNAL_JWT_REQUIRED_SCOPE:attendance:sync}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.attendance.core: ${CORE_LOG_LEVEL:INFO}

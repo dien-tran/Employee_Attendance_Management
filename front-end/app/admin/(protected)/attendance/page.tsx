@@ -1,47 +1,100 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Chatbot } from '@/components/features/chatbot'
 import { MotionPage, MotionSection, MotionTableRow } from '@/components/features/motion'
 import { EmployeeAvatar } from '@/components/features/employee-avatar'
-import { attendanceRecords, employees } from "@/lib/mock-data"
-import { Calendar, Search, Filter, Download } from "lucide-react"
+import { attendanceService, type AttendanceDTO } from '@/services/attendance.service'
+import { staffService, type StaffDTO } from '@/services/staff.service'
+import { Calendar, Search, Filter, Download, LogIn, LogOut } from "lucide-react"
 import { MotionButton } from '@/components/features/motion'
 
-type StatusFilter = "all" | "present" | "late" | "absent" | "half-day"
+type StatusFilter = "all" | "on-time" | "late" | "recorded"
 
 export default function AdminAttendancePage() {
+  const today = new Date().toISOString().split("T")[0]
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
-  const [dateFilter, setDateFilter] = useState("")
+  const [dateFilter, setDateFilter] = useState(today)
+  const [records, setRecords] = useState<AttendanceDTO[]>([])
+  const [staffList, setStaffList] = useState<StaffDTO[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadAttendance() {
+      setIsLoading(true)
+      setError("")
+
+      try {
+        const [attendance, staff] = await Promise.all([
+          attendanceService.getAttendanceByRange(dateFilter, dateFilter),
+          staffService.getAll(),
+        ])
+
+        if (isMounted) {
+          setRecords(attendance)
+          setStaffList(staff)
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : "Unable to load attendance records")
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    loadAttendance()
+
+    return () => {
+      isMounted = false
+    }
+  }, [dateFilter])
+
+  const staffByStaffId = useMemo(() => {
+    return new Map(staffList.map((staff) => [staff.staffId, staff]))
+  }, [staffList])
 
   const filteredRecords = useMemo(() => {
-    return attendanceRecords.filter((record) => {
-      const matchesSearch = record.employeeName
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase())
-      const matchesStatus = statusFilter === "all" || record.status === statusFilter
-      const matchesDate = !dateFilter || record.date === dateFilter
+    return records.filter((record) => {
+      const staff = staffByStaffId.get(record.staffId)
+      const searchable = `${staff?.name ?? ""} ${staff?.email ?? ""} ${record.staffId}`.toLowerCase()
+      const matchesSearch = searchable.includes(searchQuery.toLowerCase())
+      const matchesStatus = statusFilter === "all"
+        || (statusFilter === "on-time" && record.onTime === true)
+        || (statusFilter === "late" && record.onTime === false)
+        || (statusFilter === "recorded" && record.onTime == null)
 
-      return matchesSearch && matchesStatus && matchesDate
+      return matchesSearch && matchesStatus
     })
-  }, [searchQuery, statusFilter, dateFilter])
+  }, [records, searchQuery, statusFilter, staffByStaffId])
 
   const statusCounts = useMemo(() => {
-    const today = new Date().toISOString().split("T")[0]
-    const todayRecords = attendanceRecords.filter((r) => r.date === today)
     return {
-      present: todayRecords.filter((r) => r.status === "present").length,
-      late: todayRecords.filter((r) => r.status === "late").length,
-      absent: todayRecords.filter((r) => r.status === "absent").length,
-      halfDay: todayRecords.filter((r) => r.status === "half-day").length,
+      onTime: records.filter((r) => r.onTime === true).length,
+      late: records.filter((r) => r.onTime === false).length,
+      recorded: records.filter((r) => r.onTime == null).length,
+      checkIn: records.filter((r) => r.type === "CHECK_IN").length,
+      checkOut: records.filter((r) => r.type === "CHECK_OUT").length,
     }
-  }, [])
+  }, [records])
+
+  const checkInRecords = useMemo(() => {
+    return filteredRecords.filter((record) => record.type === "CHECK_IN")
+  }, [filteredRecords])
+
+  const checkOutRecords = useMemo(() => {
+    return filteredRecords.filter((record) => record.type === "CHECK_OUT")
+  }, [filteredRecords])
 
   return (
     <>
       <MotionPage className="p-6 lg:p-8">
-        {/* Header */}
         <MotionSection className="mb-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -57,10 +110,10 @@ export default function AdminAttendancePage() {
           </div>
         </MotionSection>
 
-        {/* Quick Stats */}
         <MotionSection className="mb-6">
           <div className="flex flex-wrap gap-3">
             <button
+              data-testid="admin-attendance-filter-all"
               onClick={() => setStatusFilter("all")}
               className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                 statusFilter === "all"
@@ -71,16 +124,18 @@ export default function AdminAttendancePage() {
               All Records
             </button>
             <button
-              onClick={() => setStatusFilter("present")}
+              data-testid="admin-attendance-filter-on-time"
+              onClick={() => setStatusFilter("on-time")}
               className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                statusFilter === "present"
+                statusFilter === "on-time"
                   ? "bg-success text-success-foreground"
                   : "bg-success/10 text-success hover:bg-success/20"
               }`}
             >
-              Present ({statusCounts.present})
+              On Time ({statusCounts.onTime})
             </button>
             <button
+              data-testid="admin-attendance-filter-late"
               onClick={() => setStatusFilter("late")}
               className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                 statusFilter === "late"
@@ -90,27 +145,17 @@ export default function AdminAttendancePage() {
             >
               Late ({statusCounts.late})
             </button>
-            <button
-              onClick={() => setStatusFilter("absent")}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                statusFilter === "absent"
-                  ? "bg-destructive text-destructive-foreground"
-                  : "bg-destructive/10 text-destructive hover:bg-destructive/20"
-              }`}
-            >
-              Absent ({statusCounts.absent})
-            </button>
           </div>
         </MotionSection>
 
-        {/* Filters */}
         <MotionSection className="mb-6">
           <div className="flex flex-col gap-4 sm:flex-row">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
+                data-testid="admin-attendance-search-input"
                 type="text"
-                placeholder="Search by employee name..."
+                placeholder="Search by employee name, email, or staff id..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full rounded-lg border border-input bg-background py-2 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -119,6 +164,7 @@ export default function AdminAttendancePage() {
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
+                data-testid="admin-attendance-date-filter"
                 type="date"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
@@ -132,100 +178,49 @@ export default function AdminAttendancePage() {
           </div>
         </MotionSection>
 
-        {/* Table */}
         <MotionSection>
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border bg-muted/30">
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                      Employee
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                      Date
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                      Check In
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                      Check Out
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                      Hours
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRecords.slice(0, 20).map((record, index) => {
-                    const employee = employees.find((e) => e.id === record.employeeId)
-                    return (
-                      <MotionTableRow key={record.id} index={index}>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <EmployeeAvatar
-                              name={record.employeeName}
-                              image={employee?.image}
-                              size="sm"
-                            />
-                            <span className="font-medium text-foreground">
-                              {record.employeeName}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground">
-                          {new Date(record.date).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-foreground">
-                          {record.checkIn || "-"}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-foreground">
-                          {record.checkOut || "-"}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-foreground">
-                          {record.hoursWorked ? `${record.hoursWorked}h` : "-"}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                              record.status === "present"
-                                ? "bg-success/10 text-success"
-                                : record.status === "late"
-                                ? "bg-scanner/10 text-scanner"
-                                : record.status === "absent"
-                                ? "bg-destructive/10 text-destructive"
-                                : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
-                          </span>
-                        </td>
-                      </MotionTableRow>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {filteredRecords.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <p className="text-muted-foreground">No records found matching your filters.</p>
+          <div className="grid gap-6">
+            {isLoading && (
+              <div data-testid="admin-attendance-loading-state" className="py-12 text-center text-muted-foreground">
+                Loading attendance records...
               </div>
             )}
 
-            {filteredRecords.length > 20 && (
-              <div className="border-t border-border p-4 text-center">
-                <p className="text-sm text-muted-foreground">
-                  Showing 20 of {filteredRecords.length} records
-                </p>
+            {!isLoading && error && (
+              <div data-testid="admin-attendance-error-state" className="py-12 text-center text-destructive">
+                {error}
               </div>
+            )}
+
+            {!isLoading && !error && (
+              <>
+                <AttendanceTable
+                  title="Check-in"
+                  description="Employee arrivals for the selected date"
+                  icon={LogIn}
+                  records={checkInRecords}
+                  totalRecords={statusCounts.checkIn}
+                  staffByStaffId={staffByStaffId}
+                  tableTestId="admin-attendance-checkin-table"
+                  emptyTestId="admin-attendance-checkin-empty-state"
+                />
+                <AttendanceTable
+                  title="Checkout"
+                  description="Employee departures for the selected date"
+                  icon={LogOut}
+                  records={checkOutRecords}
+                  totalRecords={statusCounts.checkOut}
+                  staffByStaffId={staffByStaffId}
+                  tableTestId="admin-attendance-checkout-table"
+                  emptyTestId="admin-attendance-checkout-empty-state"
+                />
+
+                {filteredRecords.length === 0 && (
+                  <div data-testid="admin-attendance-empty-state" className="sr-only">
+                    No records found matching your filters.
+                  </div>
+                )}
+              </>
             )}
           </div>
         </MotionSection>
@@ -233,4 +228,138 @@ export default function AdminAttendancePage() {
       <Chatbot />
     </>
   )
+}
+
+interface AttendanceTableProps {
+  title: string
+  description: string
+  icon: typeof LogIn
+  records: AttendanceDTO[]
+  totalRecords: number
+  staffByStaffId: Map<string, StaffDTO>
+  tableTestId: string
+  emptyTestId: string
+}
+
+function AttendanceTable({
+  title,
+  description,
+  icon: Icon,
+  records,
+  totalRecords,
+  staffByStaffId,
+  tableTestId,
+  emptyTestId,
+}: AttendanceTableProps) {
+  const visibleRecords = records.slice(0, 20)
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="flex flex-col gap-3 border-b border-border bg-muted/20 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
+            <Icon className="size-4 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-foreground">{title}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          </div>
+        </div>
+        <span className="w-fit rounded-md bg-background px-3 py-1 text-sm font-medium text-foreground">
+          {records.length} shown / {totalRecords} total
+        </span>
+      </div>
+
+      {records.length === 0 ? (
+        <div data-testid={emptyTestId} className="flex flex-col items-center justify-center py-12 text-center">
+          <p className="text-muted-foreground">No {title.toLowerCase()} records found.</p>
+        </div>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full" data-testid={tableTestId}>
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Employee</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Staff ID</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Date</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Time</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleRecords.map((record, index) => {
+                  const staff = staffByStaffId.get(record.staffId)
+                  const employeeName = staff?.name ?? record.staffId
+
+                  return (
+                    <MotionTableRow key={record.id} index={index} data-testid={`admin-attendance-row-${record.id}`}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <EmployeeAvatar name={employeeName} size="sm" />
+                          <span className="font-medium text-foreground" data-testid={`admin-attendance-employee-${record.id}`}>
+                            {employeeName}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground" data-testid={`admin-attendance-staff-id-${record.id}`}>
+                        {record.staffId}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground" data-testid={`admin-attendance-date-${record.id}`}>
+                        {formatDate(record.date)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-foreground" data-testid={`admin-attendance-time-${record.id}`}>
+                        {formatTime(record.timestamp)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge record={record} />
+                      </td>
+                    </MotionTableRow>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {records.length > 20 && (
+            <div className="border-t border-border p-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                Showing 20 of {records.length} {title.toLowerCase()} records
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
+
+function StatusBadge({ record }: { record: AttendanceDTO }) {
+  const label = record.onTime === true ? "On Time" : record.onTime === false ? "Late" : "Recorded"
+  const className = record.onTime === true
+    ? "bg-success/10 text-success"
+    : record.onTime === false
+      ? "bg-scanner/10 text-scanner"
+      : "bg-muted text-muted-foreground"
+
+  return (
+    <span
+      data-testid={`admin-attendance-status-${record.id}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}
+    >
+      {label}
+    </span>
+  )
+}
+
+function formatDate(value: string) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+}
+
+function formatTime(value: string) {
+  return value.slice(11, 16)
 }

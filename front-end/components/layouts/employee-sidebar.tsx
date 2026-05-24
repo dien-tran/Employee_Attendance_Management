@@ -27,9 +27,14 @@ const navItems = [
     icon: LayoutDashboard,
   },
   {
-    title: "Check In/Out",
-    href: "/user/check",
+    title: "Check In",
+    href: "/checkin",
     icon: Camera,
+  },
+  {
+    title: "Check Out",
+    href: "/checkout",
+    icon: LogOut,
   },
   {
     title: "My Attendance",
@@ -50,6 +55,7 @@ export function EmployeeSidebar() {
 
   return (
     <motion.aside
+      data-testid="user-sidebar"
       className={cn(
         "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-sidebar-border bg-sidebar",
         "transition-[width] duration-300 ease-in-out"

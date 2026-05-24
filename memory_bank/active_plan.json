@@ -1,0 +1,200 @@
+{
+  "project": "Employee Attendance Management System",
+  "description": "SYSTEM PLAN SUMMARY & KNOWLEDGE BASE. Tài liệu định hướng nghiệp vụ (Source of Truth for Business Logic). TẤT CẢ các Agent phải đọc tài liệu này để xác định phạm vi (Scope) và trạng thái (Status) trước khi thực thi code.",
+  "status_legend": {
+    "DONE": "Đã hoàn thành, không được tự ý sửa đổi code cũ.",
+    "PENDING": "Chưa làm, hoặc đang cần Mock Data.",
+    "IN-PROGRESS": "Đang triển khai.",
+    "WAITING_FOR_API": "Task do team khác phụ trách, đang chờ để lấy API thật hoặc tạo Mock API hứng data."
+  },
+  "current_phase": "Giai đoạn 3: Tích hợp Frontend & Backend (Next.js)",
+  "tasks": [
+    {
+      "id": "3.1.3",
+      "domain": "UI/UX FEATURES SCOPE - Admin Portal",
+      "name": "Giao diện Upload data khuôn mặt",
+      "status": "WAITING_FOR_API",
+      "description": "Giao diện đã có, chờ team AI cung cấp API Đăng ký khuôn mặt để tích hợp."
+    },
+    {
+      "id": "3.1.4",
+      "domain": "UI/UX FEATURES SCOPE - Admin Portal",
+      "name": "Dashboard tổng quan (Tổng nhân sự, Tỉ lệ đi muộn/đúng giờ hôm nay)",
+      "status": "WAITING_FOR_API",
+      "description": "Chờ API Analytics. Hiện tại chỉ sử dụng Mock Data tĩnh trên giao diện."
+    },
+    {
+      "id": "3.1.5",
+      "domain": "UI/UX FEATURES SCOPE - Admin Portal",
+      "name": "AI Chatbot Panel (Hỏi đáp thống kê toàn công ty)",
+      "status": "WAITING_FOR_API",
+      "description": "Chờ API Chatbot từ Core Service."
+    },
+    {
+      "id": "3.2.4",
+      "domain": "UI/UX FEATURES SCOPE - User Portal",
+      "name": "Dashboard cá nhân (Thống kê đi muộn, đúng giờ trong tháng)",
+      "status": "WAITING_FOR_API"
+    },
+    {
+      "id": "3.2.5",
+      "domain": "UI/UX FEATURES SCOPE - User Portal",
+      "name": "Nút bấm Chấm công thủ công (Fallback khi camera lỗi)",
+      "status": "WAITING_FOR_API"
+    },
+    {
+      "id": "3.2.6",
+      "domain": "UI/UX FEATURES SCOPE - User Portal",
+      "name": "AI Chatbot (Hỏi đáp cá nhân: Lương, giờ làm, ngày phép)",
+      "status": "WAITING_FOR_API"
+    }
+  ],
+  "external_dependencies_phase": {
+    "phase_name": "Giai đoạn AI & Core Analytics (Team khác phụ trách)",
+    "description": "Các task này do team khác làm, hiện tại chỉ cần chờ API thật hoặc viết Mock API để hứng dữ liệu cho UI.",
+    "tasks": [
+      {
+        "id": "1.4",
+        "domain": "AUTH & USER MANAGEMENT (auth-service)",
+        "name": "Nghiệp vụ: Đăng ký khuôn mặt (Face Registration)",
+        "status": "WAITING_FOR_API",
+        "description": "Admin chọn nhân viên -> Upload ảnh/Chụp camera. AI kiểm tra chất lượng (sáng, nét, 1 khuôn mặt). Trích xuất vector qua InsightFace/ArcFace. Lưu Vector DB kèm metadata."
+      },
+      {
+        "id": "2.1",
+        "domain": "ATTENDANCE & AI ANALYTICS (core-service)",
+        "name": "Nghiệp vụ: Luồng Chấm công (User Flow)",
+        "status": "WAITING_FOR_API",
+        "description": "Nhân viên quét khuôn mặt (Checkin/Checkout). Tiền xử lý -> Vector Search (Threshold >= 0.8). Trả về staff_id -> Insert record."
+      },
+      {
+        "id": "2.2",
+        "domain": "ATTENDANCE & AI ANALYTICS (core-service)",
+        "name": "Nghiệp vụ: Bảng Thống kê (Aggregate for AI)",
+        "status": "WAITING_FOR_API",
+        "description": "Cung cấp dữ liệu tĩnh (Markdown Table) cho LLM Chatbot (Tổng ngày đi làm, đi muộn, về sớm, v.v.)."
+      }
+    ]
+  },
+  "infrastructure": {
+    "frontend_docker": {
+      "status": "DONE",
+      "description": "Đã tạo Dockerfile (multi-stage build: node build → nginx serve), nginx.conf (proxy /api/ → api-gateway:8080), và cập nhật docker-compose.yml với frontend service port 3000:80.",
+      "files": [
+        "front-end/Dockerfile",
+        "front-end/nginx.conf"
+      ]
+    }
+  },
+  "database_schema": {
+    "staffs": [
+      {
+        "field": "id",
+        "type": "UUID (PK)",
+        "description": "Khóa chính nội bộ"
+      },
+      {
+        "field": "staff_id",
+        "type": "VARCHAR",
+        "description": "Mã nhân viên hệ thống cấp (VD: NV123456)"
+      },
+      {
+        "field": "name",
+        "type": "VARCHAR",
+        "description": "Họ và tên"
+      },
+      {
+        "field": "department",
+        "type": "VARCHAR",
+        "description": "Phòng ban (IT, HR, Sales...)"
+      },
+      {
+        "field": "position",
+        "type": "VARCHAR",
+        "description": "Vị trí công tác"
+      },
+      {
+        "field": "onboard_date",
+        "type": "DATE",
+        "description": "Ngày bắt đầu làm việc"
+      },
+      {
+        "field": "status",
+        "type": "VARCHAR",
+        "description": "Trạng thái (ACTIVE / INACTIVE)"
+      },
+      {
+        "field": "phone",
+        "type": "VARCHAR",
+        "description": "Số điện thoại"
+      },
+      {
+        "field": "email",
+        "type": "VARCHAR",
+        "description": "Email cá nhân/công ty (Dùng để đăng nhập)"
+      },
+      {
+        "field": "identity_card",
+        "type": "VARCHAR",
+        "description": "Căn cước công dân"
+      },
+      {
+        "field": "bank_account",
+        "type": "VARCHAR",
+        "description": "Số tài khoản ngân hàng"
+      },
+      {
+        "field": "bank_name",
+        "type": "VARCHAR",
+        "description": "Tên ngân hàng"
+      },
+      {
+        "field": "dob",
+        "type": "DATE",
+        "description": "Ngày sinh"
+      },
+      {
+        "field": "password",
+        "type": "VARCHAR",
+        "description": "Mật khẩu (Băm/Hashed)"
+      },
+      {
+        "field": "role",
+        "type": "VARCHAR",
+        "description": "Quyền (ADMIN / USER)"
+      }
+    ],
+    "attendances": [
+      {
+        "field": "id",
+        "type": "UUID (PK)",
+        "description": "Khóa chính"
+      },
+      {
+        "field": "staff_id",
+        "type": "VARCHAR",
+        "description": "Mã nhân viên (Mapping với bảng staffs)"
+      },
+      {
+        "field": "type",
+        "type": "VARCHAR",
+        "description": "Loại thao tác (CHECK_IN / CHECK_OUT)"
+      },
+      {
+        "field": "timestamp",
+        "type": "DATETIME",
+        "description": "Thời gian chấm công chính xác (VD: 08:15:00)"
+      },
+      {
+        "field": "date",
+        "type": "DATE",
+        "description": "Ngày chấm công (VD: 2026-05-12)"
+      },
+      {
+        "field": "on_time",
+        "type": "BOOLEAN",
+        "description": "Trạng thái đi đúng giờ (TRUE: đúng giờ, FALSE: trễ giờ)"
+      }
+    ]
+  }
+}

@@ -1,5 +1,5 @@
 import { AdminLayout } from "@/components/layouts/admin-layout"
-import { ProtectedRoute } from "@/components/auth/protected-route"
+import { AdminGuard } from "@/components/auth/protected-route"
 
 export default function AdminRootLayout({
   children,
@@ -7,8 +7,8 @@ export default function AdminRootLayout({
   children: React.ReactNode
 }) {
   return (
-    <ProtectedRoute role="ADMIN">
+    <AdminGuard>
       <AdminLayout>{children}</AdminLayout>
-    </ProtectedRoute>
+    </AdminGuard>
   )
 }

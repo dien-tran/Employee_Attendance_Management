@@ -1,109 +1,32 @@
-# 🎬 MOTION & ANIMATION (VERY IMPORTANT)
+### 3.3. Sơ đồ Data Flow
 
-Use **Framer Motion** to create smooth, modern, meaningful animations.
+```mermaid
+sequenceDiagram
+    participant Client as Client (Browser)
+    participant Nginx as Nginx (Reverse Proxy)
+    participant Gateway as API Gateway (Spring Cloud)
+    participant MS as Backend Microservices
 
-### Principles
+    Note over Client, Nginx: Tải UI/Web Server
+    Client->>Nginx: GET /
+    Nginx-->>Client: Trả về file Frontend (HTML/JS/CSS)
 
-* Animations must **improve UX clarity**, not distract
-* Keep them **fast, subtle, and responsive**
-* Avoid over-animation
+    Note over Client, MS: Gọi API (Kèm theo HttpOnly Cookie chứa JWT)
+    Client->>Nginx: GET /api/users/myInfo
+    Nginx->>Gateway: Forward (Catch-all /api/)
 
----
-
-### Required Animations
-
-#### Page & Layout
-
-* Page transitions:
-
-  * Fade + slight slide (opacity + translateY)
-* Sidebar:
-
-  * Smooth expand/collapse
-* Route changes:
-
-  * Soft transition between pages
-
----
-
-#### Cards & Components
-
-* Card hover:
-
-  * Scale (1.02) + shadow lift
-* Buttons:
-
-  * Tap/press effect (scale down slightly)
-* Tables:
-
-  * Row hover highlight
+    Note over Gateway: Lọc Cookie, Giải mã & Xác thực JWT
+    alt JWT Sai / Hết Hạn
+        Gateway-->>Nginx: 401 Unauthorized
+        Nginx-->>Client: 401 Unauthorized
+    else JWT Hợp lệ
+        Note over Gateway: Sinh Header nội bộ:<br>X-User-Id, X-User-Roles
+        Gateway->>MS: Route Request + Custom Headers
+        Note over MS: Tin tưởng Headers,<br/>Xử lý logic (Stateless)
+        MS-->>Gateway: Entity Data / Response JSON
+        Gateway-->>Nginx: Forward Data
+        Nginx-->>Client: Trả về kết quả
+    end
+```
 
 ---
-
-#### Modals & Forms
-
-* Modal:
-
-  * Fade in + scale up (spring animation)
-* Form validation:
-
-  * Shake animation on error
-* Toast notifications:
-
-  * Slide in from top/right
-
----
-
-#### Face Recognition (VERY IMPORTANT)
-
-* Webcam scanning state:
-
-  * Pulse / scanning overlay animation
-* Detecting state:
-
-  * Animated loading (spinner or shimmer)
-* Success:
-
-  * Smooth green highlight + check icon animation
-* Error:
-
-  * Subtle shake + red feedback
-
-👉 Must clearly communicate system status in <10s
-
----
-
-#### AI Chatbot
-
-* Floating button:
-
-  * Bounce or pulse idle animation
-* Open chat:
-
-  * Expand from bottom-right (scale + fade)
-* Messages:
-
-  * Staggered appearance (chat bubbles animate in)
-
----
-
-#### Loading & Empty States
-
-* Skeleton loading:
-
-  * Shimmer effect
-* Empty states:
-
-  * Fade-in illustration + text
-
----
-
-### Performance Notes
-
-* Use lightweight animations
-* Avoid blocking interactions
-* Keep transitions under 300ms–500ms
-
----
-
-👉 Overall goal: make the app feel like a **premium SaaS product (Stripe / Linear style)**

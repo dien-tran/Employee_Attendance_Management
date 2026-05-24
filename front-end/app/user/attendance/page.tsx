@@ -1,45 +1,65 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Chatbot } from '@/components/features/chatbot'
 import { MotionPage, MotionSection, MotionTableRow, StaggerContainer, StaggerItem } from '@/components/features/motion'
-import { attendanceRecords, getCurrentEmployee } from "@/lib/mock-data"
+import { attendanceService, type AttendanceDTO } from '@/services/attendance.service'
 import { Calendar, Download, TrendingUp, Clock, CheckCircle2, XCircle } from "lucide-react"
 import { MotionButton } from '@/components/features/motion'
 
 export default function MyAttendancePage() {
-  const currentEmployee = getCurrentEmployee()
+  const today = new Date().toISOString().split("T")[0]
+  const currentMonth = today.substring(0, 7)
   const [dateFilter, setDateFilter] = useState("")
-  const [monthFilter, setMonthFilter] = useState("")
+  const [monthFilter, setMonthFilter] = useState(currentMonth)
+  const [records, setRecords] = useState<AttendanceDTO[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
 
-  const myRecords = useMemo(() => {
-    return attendanceRecords
-      .filter((r) => r.employeeId === currentEmployee.id)
-      .filter((r) => {
-        if (dateFilter && r.date !== dateFilter) return false
-        if (monthFilter) {
-          const recordMonth = r.date.substring(0, 7) // YYYY-MM
-          if (recordMonth !== monthFilter) return false
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadAttendance() {
+      setIsLoading(true)
+      setError("")
+
+      try {
+        const { startDate, endDate } = getDateRange(dateFilter, monthFilter)
+        const data = await attendanceService.getMyAttendance(startDate, endDate)
+        if (isMounted) {
+          setRecords(data)
         }
-        return true
-      })
-  }, [currentEmployee.id, dateFilter, monthFilter])
+      } catch (err) {
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : "Unable to load attendance records")
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    loadAttendance()
+
+    return () => {
+      isMounted = false
+    }
+  }, [dateFilter, monthFilter])
 
   const stats = useMemo(() => {
-    const total = myRecords.length
-    const present = myRecords.filter((r) => r.status === "present").length
-    const late = myRecords.filter((r) => r.status === "late").length
-    const absent = myRecords.filter((r) => r.status === "absent").length
-    const totalHours = myRecords.reduce((sum, r) => sum + (r.hoursWorked || 0), 0)
-    const attendanceRate = total > 0 ? Math.round(((present + late) / total) * 100) : 0
+    const total = records.length
+    const checkIns = records.filter((r) => r.type === "CHECK_IN").length
+    const onTime = records.filter((r) => r.onTime === true).length
+    const late = records.filter((r) => r.onTime === false).length
+    const onTimeRate = total > 0 ? Math.round((onTime / total) * 100) : 0
 
-    return { total, present, late, absent, totalHours, attendanceRate }
-  }, [myRecords])
+    return { total, checkIns, onTime, late, onTimeRate }
+  }, [records])
 
   return (
     <>
       <MotionPage className="p-6 lg:p-8">
-        {/* Header */}
         <MotionSection className="mb-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -55,95 +75,95 @@ export default function MyAttendancePage() {
           </div>
         </MotionSection>
 
-        {/* Stats Cards */}
         <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
           <StaggerItem>
-            <div className="rounded-xl border border-border bg-card p-4">
+            <div className="rounded-lg border border-border bg-card p-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10">
                   <TrendingUp className="h-5 w-5 text-success" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{stats.attendanceRate}%</p>
-                  <p className="text-sm text-muted-foreground">Attendance Rate</p>
+                  <p className="text-2xl font-bold text-foreground">{stats.onTimeRate}%</p>
+                  <p className="text-sm text-muted-foreground">On-time Rate</p>
                 </div>
               </div>
             </div>
           </StaggerItem>
           <StaggerItem>
-            <div className="rounded-xl border border-border bg-card p-4">
+            <div className="rounded-lg border border-border bg-card p-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                   <CheckCircle2 className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{stats.present}</p>
-                  <p className="text-sm text-muted-foreground">Days Present</p>
+                  <p className="text-2xl font-bold text-foreground">{stats.checkIns}</p>
+                  <p className="text-sm text-muted-foreground">Check-ins</p>
                 </div>
               </div>
             </div>
           </StaggerItem>
           <StaggerItem>
-            <div className="rounded-xl border border-border bg-card p-4">
+            <div className="rounded-lg border border-border bg-card p-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-scanner/10">
                   <Clock className="h-5 w-5 text-scanner" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">{stats.late}</p>
-                  <p className="text-sm text-muted-foreground">Late Arrivals</p>
+                  <p className="text-sm text-muted-foreground">Late Events</p>
                 </div>
               </div>
             </div>
           </StaggerItem>
           <StaggerItem>
-            <div className="rounded-xl border border-border bg-card p-4">
+            <div className="rounded-lg border border-border bg-card p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10">
-                  <XCircle className="h-5 w-5 text-destructive" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                  <XCircle className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{stats.absent}</p>
-                  <p className="text-sm text-muted-foreground">Days Absent</p>
+                  <p className="text-2xl font-bold text-foreground">{stats.total}</p>
+                  <p className="text-sm text-muted-foreground">Total Events</p>
                 </div>
               </div>
             </div>
           </StaggerItem>
         </StaggerContainer>
 
-        {/* Filters */}
         <MotionSection className="mb-6">
           <div className="flex flex-col gap-4 sm:flex-row">
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
+                data-testid="attendance-month-filter"
                 type="month"
                 value={monthFilter}
                 onChange={(e) => {
                   setMonthFilter(e.target.value)
-                  setDateFilter("") // Clear specific date when filtering by month
+                  setDateFilter("")
                 }}
-                placeholder="Filter by month"
                 className="rounded-lg border border-input bg-background py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
+                data-testid="attendance-date-filter"
                 type="date"
                 value={dateFilter}
                 onChange={(e) => {
                   setDateFilter(e.target.value)
-                  setMonthFilter("") // Clear month when filtering by specific date
+                  setMonthFilter("")
                 }}
                 className="rounded-lg border border-input bg-background py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
             {(dateFilter || monthFilter) && (
               <button
+                data-testid="attendance-clear-filters"
                 onClick={() => {
                   setDateFilter("")
-                  setMonthFilter("")
+                  setMonthFilter(currentMonth)
                 }}
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
@@ -153,90 +173,32 @@ export default function MyAttendancePage() {
           </div>
         </MotionSection>
 
-        {/* Summary Card */}
-        <StaggerContainer className="mb-6">
-          <StaggerItem>
-            <div className="rounded-xl border border-border bg-card p-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h3 className="font-semibold text-foreground">Total Hours Worked</h3>
-                  <p className="text-sm text-muted-foreground">Based on {stats.total} recorded days</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-3xl font-bold text-foreground">{stats.totalHours.toFixed(1)}h</p>
-                  <p className="text-sm text-muted-foreground">
-                    Avg: {stats.total > 0 ? (stats.totalHours / stats.total).toFixed(1) : 0}h/day
-                  </p>
-                </div>
-              </div>
-            </div>
-          </StaggerItem>
-        </StaggerContainer>
-
-        {/* Table */}
         <MotionSection>
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full" data-testid="attendance-history-table">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                      Date
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                      Check In
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                      Check Out
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                      Hours
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                      Status
-                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Date</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Time</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Type</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {myRecords.map((record, index) => (
-                    <MotionTableRow key={record.id} index={index}>
-                      <td className="px-4 py-3">
-                        <div>
-                          <p className="font-medium text-foreground">
-                            {new Date(record.date).toLocaleDateString("en-US", {
-                              weekday: "short",
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(record.date).getFullYear()}
-                          </p>
-                        </div>
+                  {records.map((record, index) => (
+                    <MotionTableRow key={record.id} index={index} data-testid={`attendance-row-${record.id}`}>
+                      <td className="px-4 py-3 text-sm text-muted-foreground" data-testid={`attendance-date-${record.id}`}>
+                        {formatDate(record.date)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-foreground">
-                        {record.checkIn || "-"}
+                      <td className="px-4 py-3 text-sm text-foreground" data-testid={`attendance-time-${record.id}`}>
+                        {formatTime(record.timestamp)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-foreground">
-                        {record.checkOut || "-"}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-foreground">
-                        {record.hoursWorked ? `${record.hoursWorked}h` : "-"}
+                      <td className="px-4 py-3 text-sm text-foreground" data-testid={`attendance-type-${record.id}`}>
+                        {formatType(record.type)}
                       </td>
                       <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            record.status === "present"
-                              ? "bg-success/10 text-success"
-                              : record.status === "late"
-                              ? "bg-scanner/10 text-scanner"
-                              : record.status === "absent"
-                              ? "bg-destructive/10 text-destructive"
-                              : "bg-muted text-muted-foreground"
-                          }`}
-                        >
-                          {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
-                        </span>
+                        <StatusBadge record={record} />
                       </td>
                     </MotionTableRow>
                   ))}
@@ -244,13 +206,22 @@ export default function MyAttendancePage() {
               </table>
             </div>
 
-            {myRecords.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
+            {isLoading && (
+              <div data-testid="attendance-loading-state" className="py-12 text-center text-muted-foreground">
+                Loading attendance records...
+              </div>
+            )}
+
+            {!isLoading && error && (
+              <div data-testid="attendance-error-state" className="py-12 text-center text-destructive">
+                {error}
+              </div>
+            )}
+
+            {!isLoading && !error && records.length === 0 && (
+              <div data-testid="attendance-empty-state" className="flex flex-col items-center justify-center py-12 text-center">
                 <Calendar className="h-12 w-12 text-muted-foreground/50 mb-3" />
                 <p className="text-muted-foreground">No attendance records found.</p>
-                {(dateFilter || monthFilter) && (
-                  <p className="text-sm text-muted-foreground mt-1">Try adjusting your filters.</p>
-                )}
               </div>
             )}
           </div>
@@ -259,4 +230,53 @@ export default function MyAttendancePage() {
       <Chatbot />
     </>
   )
+}
+
+function StatusBadge({ record }: { record: AttendanceDTO }) {
+  const label = record.onTime === true ? "On Time" : record.onTime === false ? "Late" : "Recorded"
+  const className = record.onTime === true
+    ? "bg-success/10 text-success"
+    : record.onTime === false
+      ? "bg-scanner/10 text-scanner"
+      : "bg-muted text-muted-foreground"
+
+  return (
+    <span
+      data-testid={`attendance-status-${record.id}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}
+    >
+      {label}
+    </span>
+  )
+}
+
+function getDateRange(dateFilter: string, monthFilter: string) {
+  if (dateFilter) {
+    return { startDate: dateFilter, endDate: dateFilter }
+  }
+
+  if (monthFilter) {
+    const [year, month] = monthFilter.split("-").map(Number)
+    const lastDay = new Date(year, month, 0).getDate().toString().padStart(2, "0")
+    const endDate = `${monthFilter}-${lastDay}`
+    return { startDate: `${monthFilter}-01`, endDate }
+  }
+
+  return {}
+}
+
+function formatDate(value: string) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+}
+
+function formatTime(value: string) {
+  return value.slice(11, 16)
+}
+
+function formatType(value: AttendanceDTO["type"]) {
+  return value === "CHECK_IN" ? "Check In" : "Check Out"
 }

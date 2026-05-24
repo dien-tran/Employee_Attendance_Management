@@ -1,0 +1,23 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Java build output
+target/
+**/target/
+
+# Frontend dependencies and build output
+node_modules/
+front-end/node_modules/
+front-end/.next/
+front-end/out/
+front-end/playwright-report/
+front-end/test-results/
+front-end/playwright/.auth/*
+!front-end/playwright/.auth/.gitkeep
+
+# Logs and local caches
+*.log
+*.tsbuildinfo
+.DS_Store

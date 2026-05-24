@@ -1,57 +1,49 @@
 "use client"
 
-import React, { createContext, useContext, useState, useEffect } from "react"
-import { authService, type UserInfo, type AuthResponse } from "@/lib/auth-service"
+import React, { createContext, useContext, useEffect } from "react"
+import { authService } from "@/services/auth.service"
+import { useAuthStore, type AuthUser } from "@/store/authStore"
 import { useRouter, usePathname } from "next/navigation"
 
 interface AuthContextType {
-  user: UserInfo | null
-  token: string | null
+  user: AuthUser | null
   isAuthenticated: boolean
   isLoading: boolean
-  login: (data: AuthResponse, rememberMe: boolean) => void
-  logout: () => void
+  login: (username: string, password: string, isAdmin?: boolean) => Promise<void>
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<UserInfo | null>(null)
-  const [token, setToken] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const { user, isAuthenticated, isHydrated, setUser, clearAuth } = useAuthStore()
   const router = useRouter()
   const pathname = usePathname()
 
-  // Hydrate auth state from localStorage on mount
-  useEffect(() => {
-    const storedToken = localStorage.getItem("attendflow_access_token")
-    const storedUser = localStorage.getItem("attendflow_user")
+  const isLoading = !isHydrated
 
-    if (storedToken && storedUser) {
-      try {
-        setToken(storedToken)
-        setUser(JSON.parse(storedUser))
-      } catch (error) {
-        console.error("Failed to parse stored user info", error)
-        localStorage.removeItem("attendflow_access_token")
-        localStorage.removeItem("attendflow_user")
-      }
+  const login = async (username: string, password: string, isAdmin?: boolean) => {
+    const result = await authService.login({ username, password })
+
+    if (isAdmin && result.role !== "ADMIN") {
+      throw new Error("You do not have administrative privileges")
     }
-    setIsLoading(false)
-  }, [])
 
-  const login = (data: AuthResponse, rememberMe: boolean) => {
-    setToken(data.access_token)
-    setUser(data.user_info)
+    const authUser: AuthUser = {
+      id: result.staffId,
+      staffId: result.staffId,
+      name: result.name,
+      email: username,
+      role: result.role,
+    }
 
-    // Using localStorage for simplicity and persistence, irrespective of 'rememberMe' for standard Next.js prototype. 
-    // Usually, rememberMe==false implies sessionStorage.
-    if (rememberMe) {
-      localStorage.setItem("attendflow_access_token", data.access_token)
-      localStorage.setItem("attendflow_user", JSON.stringify(data.user_info))
+    setUser(authUser)
+
+    // Redirect based on role
+    if (result.role === "ADMIN") {
+      router.push("/admin/dashboard")
     } else {
-      sessionStorage.setItem("attendflow_access_token", data.access_token)
-      sessionStorage.setItem("attendflow_user", JSON.stringify(data.user_info))
+      router.push("/user/home")
     }
   }
 
@@ -59,13 +51,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await authService.logout()
     } finally {
-      localStorage.removeItem("attendflow_access_token")
-      localStorage.removeItem("attendflow_user")
-      sessionStorage.removeItem("attendflow_access_token")
-      sessionStorage.removeItem("attendflow_user")
-      setToken(null)
-      setUser(null)
-      
+      clearAuth()
+
       // Smart Redirect based on current portal layout
       if (pathname.includes("/admin")) {
         router.push("/admin/login")
@@ -76,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, isAuthenticated: !!user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   )

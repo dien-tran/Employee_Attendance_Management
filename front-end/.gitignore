@@ -14,3 +14,11 @@ next.user-config.*
 node_modules
 .next/
 .DS_Store
+
+# Playwright E2E artifacts
+playwright-report/
+test-results/
+
+# Playwright authentication state
+playwright/.auth/*
+!playwright/.auth/.gitkeep

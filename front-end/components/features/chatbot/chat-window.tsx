@@ -5,8 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Send, Bot, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ChatMessage, type Message } from "./chat-message"
-import { TypingIndicator } from "./typing-indicator"
-import { chatbotResponses } from "@/lib/mock-data"
+import { apiClient } from "@/lib/api-client"
 
 interface ChatWindowProps {
   isOpen: boolean
@@ -19,11 +18,27 @@ const quickActions = [
   { label: "Help", keyword: "help" },
 ]
 
+const RESPONSE_STREAM_WORD_DELAY_MS = 85
+const WAITING_STREAM_WORD_DELAY_MS = 95
+const WAITING_PHRASES = [
+  "Hệ thống đã ghi nhận đầy đủ yêu cầu từ bạn và đang nhanh chóng chuyển đến bộ phận xử lý.",
+  "Chúng tôi đang tổng hợp và phân tích dữ liệu, bạn vui lòng đợi trong giây lát nhé. Kết quả sẽ hiển thị ngay thôi!",
+]
+const WAITING_PHRASE_SWITCH_MS = 20_000
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const splitIntoWordChunks = (text: string): string[] => {
+  const chunks = text.match(/\S+\s*/g)
+  if (chunks && chunks.length > 0) return chunks
+  return text ? [text] : []
+}
+
 export function ChatWindow({ isOpen }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      content: chatbotResponses.greeting,
+      content: "Xin chào, mình là AttendFlow Assistant. Bạn có thể hỏi về điểm danh hoặc thông tin nhân sự.",
       role: "assistant",
       timestamp: new Date(),
     },
@@ -47,58 +62,172 @@ export function ChatWindow({ isOpen }: ChatWindowProps) {
     }
   }, [isOpen])
 
-  const getResponse = (userInput: string): string => {
-    const lower = userInput.toLowerCase()
+  const toFriendlyErrorMessage = (error: unknown): string => {
+    const raw = error instanceof Error ? error.message : "Đã xảy ra lỗi."
+    const normalized = raw.toLowerCase()
 
-    if (lower.includes("hello") || lower.includes("hi") || lower.includes("hey")) {
-      return chatbotResponses.greeting
+    if (normalized.includes("access denied") || normalized.includes("forbidden") || normalized.includes("403")) {
+      return "Bạn không có quyền truy cập loại thông tin này."
     }
-    if (lower.includes("attendance") || lower.includes("today")) {
-      return chatbotResponses.attendance
+    if (
+      normalized.includes("openrouter") ||
+      normalized.includes("chutes") ||
+      normalized.includes("503") ||
+      normalized.includes("unavailable") ||
+      normalized.includes("timeout")
+    ) {
+      return "Dịch vụ chatbot đang tạm thời bận. Vui lòng thử lại sau ít phút."
     }
-    if (lower.includes("check") && lower.includes("in")) {
-      return chatbotResponses.checkin
-    }
-    if (lower.includes("late")) {
-      return chatbotResponses.late
-    }
-    if (lower.includes("employee") || lower.includes("staff") || lower.includes("team")) {
-      return chatbotResponses.employees
-    }
-    if (lower.includes("help")) {
-      return chatbotResponses.help
+    if (normalized.includes("failed to fetch") || normalized.includes("network")) {
+      return "Không kết nối được tới máy chủ chatbot. Vui lòng kiểm tra mạng hoặc thử lại."
     }
 
-    return chatbotResponses.default
+    return "Không thể xử lý câu hỏi lúc này."
   }
 
   const sendMessage = async (text: string) => {
-    if (!text.trim()) return
+    const question = text.trim()
+    if (!question) return
 
+    const assistantMessageId = (Date.now() + 1).toString()
     const userMessage: Message = {
       id: Date.now().toString(),
-      content: text.trim(),
+      content: question,
       role: "user",
       timestamp: new Date(),
     }
 
-    setMessages((prev) => [...prev, userMessage])
+    setMessages((prev) => [
+      ...prev,
+      userMessage,
+      {
+        id: assistantMessageId,
+        content: "",
+        role: "assistant",
+        timestamp: new Date(),
+        pending: true,
+      },
+    ])
     setInput("")
     setIsTyping(true)
 
-    // Simulate response delay
-    await new Promise((resolve) => setTimeout(resolve, 800 + Math.random() * 500))
+    let requestCompleted = false
+    let mainReplyStarted = false
+    let hasStreamError = false
+    let waitingTask: Promise<void> | null = null
 
-    const response = getResponse(text)
-    const assistantMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      content: response,
-      role: "assistant",
-      timestamp: new Date(),
+    try {
+      let streamedReply = ""
+      const tokenQueue: string[] = []
+      let flushing = false
+
+      const updateAssistantMessage = (content: string, pending: boolean = false) => {
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === assistantMessageId ? { ...message, content, pending } : message
+          )
+        )
+      }
+
+      const flushTokenQueue = async () => {
+        if (flushing) return
+        flushing = true
+        while (tokenQueue.length > 0) {
+          streamedReply += tokenQueue.shift() || ""
+          updateAssistantMessage(streamedReply)
+          await sleep(RESPONSE_STREAM_WORD_DELAY_MS)
+        }
+        flushing = false
+      }
+
+      const waitForFlushDone = async () => {
+        while (flushing || tokenQueue.length > 0) {
+          await sleep(12)
+        }
+      }
+
+      const shouldStopWaitingStream = () => requestCompleted || mainReplyStarted || hasStreamError
+
+      waitingTask = (async () => {
+        for (let phraseIndex = 0; phraseIndex < WAITING_PHRASES.length; phraseIndex += 1) {
+          if (shouldStopWaitingStream()) return
+          const phrase = WAITING_PHRASES[phraseIndex]
+          const chunks = splitIntoWordChunks(phrase)
+          let streamedWaitingPhrase = ""
+
+          for (const chunk of chunks) {
+            if (shouldStopWaitingStream()) return
+            streamedWaitingPhrase += chunk
+            updateAssistantMessage(streamedWaitingPhrase, true)
+            await sleep(WAITING_STREAM_WORD_DELAY_MS)
+          }
+
+          if (shouldStopWaitingStream()) return
+
+          if (phraseIndex < WAITING_PHRASES.length - 1) {
+            const switchAt = Date.now() + WAITING_PHRASE_SWITCH_MS
+            while (Date.now() < switchAt) {
+              if (shouldStopWaitingStream()) return
+              await sleep(150)
+            }
+            updateAssistantMessage("", true)
+          } else {
+            while (!shouldStopWaitingStream()) {
+              await sleep(200)
+            }
+          }
+        }
+      })()
+
+      await apiClient.postStream(
+        "/api/chatbot/message",
+        {
+          message: question,
+          context: "",
+          stream: true,
+        },
+        {
+          onToken: (token) => {
+            if (!mainReplyStarted) {
+              mainReplyStarted = true
+              streamedReply = ""
+              updateAssistantMessage("", false)
+            }
+            tokenQueue.push(...splitIntoWordChunks(token))
+            void flushTokenQueue()
+          },
+        }
+      )
+
+      requestCompleted = true
+      if (waitingTask) {
+        await waitingTask
+      }
+      await waitForFlushDone()
+
+      if (!streamedReply.trim()) {
+        updateAssistantMessage("Mình chưa có dữ liệu để trả lời câu hỏi này.", false)
+      }
+    } catch (error) {
+      hasStreamError = true
+      requestCompleted = true
+      if (waitingTask) {
+        await waitingTask
+      }
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === assistantMessageId
+            ? {
+                ...message,
+                content: `${toFriendlyErrorMessage(error)}\n\nBạn có thể gửi lại câu hỏi để thử lại.`,
+                pending: false,
+              }
+            : message
+        )
+      )
+    } finally {
+      setIsTyping(false)
     }
-
-    setIsTyping(false)
-    setMessages((prev) => [...prev, assistantMessage])
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -107,11 +236,8 @@ export function ChatWindow({ isOpen }: ChatWindowProps) {
   }
 
   const handleQuickAction = (keyword: string) => {
-    const response = chatbotResponses[keyword as keyof typeof chatbotResponses]
-    if (response) {
-      const quickMessage = quickActions.find((a) => a.keyword === keyword)?.label || keyword
-      sendMessage(quickMessage)
-    }
+    const quickMessage = quickActions.find((action) => action.keyword === keyword)?.label || keyword
+    sendMessage(quickMessage)
   }
 
   return (
@@ -151,9 +277,6 @@ export function ChatWindow({ isOpen }: ChatWindowProps) {
             {messages.map((message, index) => (
               <ChatMessage key={message.id} message={message} index={index} />
             ))}
-            <AnimatePresence>
-              {isTyping && <TypingIndicator />}
-            </AnimatePresence>
             <div ref={messagesEndRef} />
           </div>
 

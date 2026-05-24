@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.attendance.auth.StaffIntegrationTest
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 91.83 s -- in com.attendance.auth.StaffIntegrationTest
