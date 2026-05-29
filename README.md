@@ -16,6 +16,82 @@ Microservices architecture with 7 services:
 
 ---
 
+## AI Agent Coding Harness Directory Architecture
+
+Phần này mô tả "harness" làm việc cho AI Agent coding: nơi agent đọc bối cảnh, quy tắc, kế hoạch, tài liệu kỹ thuật và ranh giới service trước khi sửa code.
+
+```text
+.
+|-- .clinerules                     # Quy trình bắt buộc cho AI agent: đọc plan, rules, lessons, test policy
+|-- .clineignore                    # Các file/thư mục agent nên bỏ qua khi quét context
+|-- README.md                       # Tổng quan hệ thống, service map, API, conventions
+|-- ENV_SETUP.md                    # Hướng dẫn cấu hình biến môi trường
+|-- docker-compose.yml              # Harness runtime để chạy toàn bộ microservices/local dependencies
+|-- .env.example                    # Template env an toàn để agent tham chiếu
+|
+|-- memory_bank/                    # Bộ nhớ dài hạn và nguồn sự thật cho agent
+|   |-- active_plan.json            # Kế hoạch hiện hành, trạng thái task, next action
+|   |-- architecture.md             # Kiến trúc hệ thống và quyết định thiết kế
+|   |-- API_Endpoint.md             # Bản đồ endpoint cho frontend/backend integration
+|   |-- spring_rules.md             # Quy chuẩn backend Spring Boot
+|   |-- nextjs_rules.md             # Quy chuẩn frontend Next.js
+|   |-- e2e_testing_rules.md        # Quy chuẩn kiểm thử E2E
+|   |-- lessons_learned.md          # Bài học/lỗi đã gặp để tránh lặp lại
+|   |-- env_audit_4_1.md            # Ghi chú audit biến môi trường
+|   `-- archive.json                # Lịch sử task đã lưu trữ
+|
+|-- docs/                           # Tài liệu nghiệp vụ, API examples, prompt/frontend specs
+|   |-- PROJECT_1_CORE_SPECS.md     # Core business specs
+|   |-- API_Example.md              # Ví dụ request/response
+|   |-- Frontend_Prompt_Design.md   # Định hướng UI/prompt frontend
+|   |-- plan-db-seed-etl.md         # Kế hoạch seed/ETL dữ liệu
+|   `-- Check.md                    # Checklist/ghi chú kiểm tra
+|
+|-- scripts/                        # Automation hỗ trợ seed/test/dev workflow
+|   `-- seed-demo-attendance.ps1    # Seed dữ liệu attendance demo
+|
+|-- api-gateway/                    # Spring Cloud Gateway: route, auth proxy, internal headers
+|-- auth-service/                   # Spring Boot auth/staff/profile service
+|-- core-service/                   # Spring Boot attendance/core domain service
+|-- eureka-service/                 # Spring Cloud Eureka service registry
+|
+|-- face-service/                   # FastAPI face recognition harness
+|   |-- AGENT.md                    # Quy tắc chuyên biệt cho AI agent khi làm face-service
+|   |-- app/                        # Backend FastAPI source
+|   |-- config/                     # config.yaml cho thresholds/model/runtime
+|   |-- models/                     # Model weights
+|   |-- plans/                      # Step-by-step plans và kết quả triển khai face pipeline
+|   |-- sql/                        # SQL init/schema cho attendance sync
+|   |-- tests/                      # Python tests
+|   `-- frontend/                   # Next.js UI test cho enrollment/checkin
+|
+|-- chat-service/                   # FastAPI chatbot + SQL/wiki agents
+|   |-- agents/                     # orchestrator, mysql_agent, llm_wiki_agent
+|   |-- skills/                     # Skill docs cho agent codegen/ETL workflow
+|   |-- scripts/hr_etl/             # ETL pipeline tạo wiki summaries
+|   |-- tests/                      # Python tests
+|   `-- scripts/wiki_exports/       # Markdown summaries cho wiki agent
+|
+`-- front-end/                      # Next.js production UI
+    |-- app/                        # App Router routes
+    |-- components/                 # UI/layout/feature components
+    |-- services/                   # API service wrappers
+    |-- store/                      # Zustand state
+    |-- tests/e2e/                  # Playwright E2E tests
+    `-- public/                     # Static assets
+```
+
+### Agent Entry Points
+
+- **Bắt đầu mọi task:** đọc `.clinerules`, `memory_bank/active_plan.json`, `memory_bank/lessons_learned.md`.
+- **Backend Spring task:** đọc `memory_bank/architecture.md`, `memory_bank/spring_rules.md`, service `README.md`, rồi mới sửa `api-gateway/`, `auth-service/`, `core-service/` hoặc `eureka-service/`.
+- **Frontend task:** đọc `memory_bank/nextjs_rules.md`, `memory_bank/API_Endpoint.md`, sau đó làm trong `front-end/`.
+- **Face recognition task:** đọc `face-service/AGENT.md`, `face-service/plans/`, `face-service/config/config.yaml`, rồi mới sửa `face-service/app/`.
+- **Chatbot/AI agent task:** đọc `chat-service/README.md`, `chat-service/skills/INDEX.md`, `chat-service/agents/`, và ETL docs trong `chat-service/scripts/hr_etl/`.
+- **Test/deploy task:** ưu tiên `docker-compose.yml`, service-level `Dockerfile`, `memory_bank/e2e_testing_rules.md`, và các thư mục `tests/`.
+
+---
+
 ## Quick Start
 
 ```bash
